@@ -1,4 +1,11 @@
+mod instructions;
+mod errors;
+mod state;
+mod events;
+
+
 use anchor_lang::prelude::*;
+use instructions::*;
 
 declare_id!("52FQQ1ukCSkMKKKpYZvm3f3YSQKybWcrg4vdunioYKpm");
 
@@ -6,11 +13,32 @@ declare_id!("52FQQ1ukCSkMKKKpYZvm3f3YSQKybWcrg4vdunioYKpm");
 pub mod escrow {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        msg!("Greetings from: {:?}", ctx.program_id);
-        Ok(())
+    pub fn init_escrow(ctx: Context<InitializeEscrow>) -> Result<()> {
+        todo!()
+    }
+
+    pub fn fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
+        todo!()
+    }
+
+    pub fn AcceptEscrow(ctx: Context<AcceptEscrow>) -> Result<()> {
+        todo!()
+    }
+
+    pub fn send_asset(ctx: Context<SendAsset>) -> Result<()> {
+        todo!()
+    }
+
+    pub fn confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
+        todo!()
+    }
+
+    pub fn cancel_escrow(ctx: Context<CancelEscrow>) -> Result<()> {
+        todo!()
+    }
+
+    pub fn auto_release(ctx: Context<AutoRelease>) -> Result<()> {
+        todo!()
     }
 }
 
-#[derive(Accounts)]
-pub struct Initialize {}
