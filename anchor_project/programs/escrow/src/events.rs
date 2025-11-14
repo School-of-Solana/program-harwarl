@@ -5,14 +5,15 @@ pub struct EscrowCreated {
     pub escrow: Pubkey,
     pub buyer: Pubkey,
     pub seller: Pubkey,
-    pub amount: u64
+    pub deposit_amount: u64,
+    pub receive_amount: u64,
 }
 
 #[event]
 pub struct EscrowFunded {
     pub escrow: Pubkey,
     pub amount: u64,
-    pub funded: u64
+    pub funded: u64,
 }
 
 #[event]
@@ -29,12 +30,12 @@ pub struct AssetSent {
 
 #[event]
 pub struct CancelEscrow {
-    pub escrow: Pubkey
+    pub escrow: Pubkey,
 }
 
 #[event]
 pub struct EscrowReleased {
-    pub escrow: Pubkey
+    pub escrow: Pubkey,
 }
 
 #[event]
@@ -46,4 +47,3 @@ pub struct AutoReleaseToSeller {
 pub struct AutoRefundToBuyer {
     pub escrow: Pubkey,
 }
-

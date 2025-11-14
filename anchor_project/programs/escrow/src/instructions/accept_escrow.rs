@@ -1,5 +1,5 @@
-use anchor_lang::prelude::*;
 use crate::state::*;
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct AcceptEscrow<'info> {
@@ -14,7 +14,6 @@ pub struct AcceptEscrow<'info> {
     pub escrow: Account<'info, Escrow>,
 }
 
-
-pub fn _accept_escrow (ctx: Context<AcceptEscrow>) -> Result<()> {
+pub fn _accept_escrow(ctx: Context<AcceptEscrow>) -> Result<()> {
     todo!()
 }

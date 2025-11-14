@@ -3,5 +3,23 @@ use anchor_lang::prelude::*;
 #[error_code]
 pub enum EscrowError {
     #[msg("Overflow")]
-    OverFlow
+    OverFlow,
+
+    #[msg("Invalid Deposit Token mint")]
+    InvalidDepositMint,
+
+    #[msg("Invalid Receive Token mint")]
+    InvalidReceiveMint,
+
+    #[msg("Token to the same token is not allowed")]
+    SameTokenTransferNotAllowed,
+
+    #[msg("Invalid Expiry date")]
+    InvalidExpiryDate,
+
+    #[msg("Escrow is not Active. Seller must accept before funding.")]
+    EscrowNotActive,
+
+    #[msg("Only the buyer can perform this action")]
+    UnauthorizedBuyer,
 }

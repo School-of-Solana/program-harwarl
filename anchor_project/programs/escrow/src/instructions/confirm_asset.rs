@@ -1,5 +1,5 @@
-use anchor_lang::prelude::*;
 use crate::{events::CancelEscrow, state::*};
+use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct ConfirmAsset<'info> {
@@ -14,11 +14,6 @@ pub struct ConfirmAsset<'info> {
     pub escrow: Account<'info, Escrow>,
 }
 
-pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()>{
+pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
     todo!()
 }
-
-
-
-
-

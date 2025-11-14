@@ -15,7 +15,6 @@ pub struct SendAsset<'info> {
     pub escrow: Account<'info, Escrow>,
 }
 
-pub fn _send_asset(ctx: Context<SendAsset>)-> Result<()>{
+pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
     todo!()
 }
-

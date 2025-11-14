@@ -1,27 +1,49 @@
-mod instructions;
 mod errors;
-mod state;
 mod events;
-
+mod instructions;
+mod state;
 
 use anchor_lang::prelude::*;
 use instructions::*;
+use state::*;
 
 declare_id!("52FQQ1ukCSkMKKKpYZvm3f3YSQKybWcrg4vdunioYKpm");
 
 #[program]
 pub mod escrow {
+    use crate::state::EscrowType;
+
     use super::*;
 
-    pub fn init_escrow(ctx: Context<InitializeEscrow>) -> Result<()> {
-        todo!()
+    pub fn init_escrow(
+        ctx: Context<InitializeEscrow>,
+        escrow_id: String,
+        escrow_type: EscrowType,
+        deposit_mint: Pubkey,
+        deposit_amount: u64,
+        receive_mint: Pubkey,
+        receive_amount: u64,
+        description: String,
+        expiry: i64,
+    ) -> Result<()> {
+        _init_escrow(
+            ctx,
+            escrow_id,
+            escrow_type,
+            deposit_mint,
+            deposit_amount,
+            receive_mint,
+            receive_amount,
+            description,
+            expiry,
+        )
     }
 
     pub fn fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
         todo!()
     }
 
-    pub fn AcceptEscrow(ctx: Context<AcceptEscrow>) -> Result<()> {
+    pub fn accept_escrow(ctx: Context<AcceptEscrow>) -> Result<()> {
         todo!()
     }
 
@@ -41,4 +63,3 @@ pub mod escrow {
         todo!()
     }
 }
-
