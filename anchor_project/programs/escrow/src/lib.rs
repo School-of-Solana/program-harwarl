@@ -47,11 +47,11 @@ pub mod escrow {
     }
 
     pub fn send_asset(ctx: Context<SendAsset>) -> Result<()> {
-        todo!()
+        _send_asset(ctx)
     }
 
     pub fn confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
-        todo!()
+        _confirm_asset(ctx)
     }
 
     pub fn cancel_escrow(ctx: Context<CancelEscrow>) -> Result<()> {

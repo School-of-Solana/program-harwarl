@@ -1,42 +1,11 @@
 use anchor_lang::prelude::{program::invoke, system_instruction::transfer, *};
 use anchor_spl::{
-    associated_token::AssociatedToken, token_2022::{Token2022, TransferChecked, transfer_checked}, token_interface::TokenAccount,
+    associated_token::AssociatedToken,
+    token_2022::{transfer_checked, Token2022, TransferChecked},
+    token_interface::TokenAccount,
 };
 
 use crate::{errors::EscrowError, events::EscrowAssetSent, state::*};
-
-#[derive(Accounts)]
-pub struct SendAsset<'info> {
-    #[account(mut)]
-    pub seller: Signer<'info>,
-    /// CHECK: Mint of the token to transfer
-    pub mint: UncheckedAccount<'info>,
-    #[account(
-        mut,
-        seeds = [ESCROW_SEED.as_bytes(), escrow.escrow_id.as_bytes(), escrow.buyer.as_ref(), seller.key().as_ref()],
-        bump = escrow.bump,
-        constraint = escrow.seller == seller.key() @ EscrowError::UnauthorizedSeller
-    )]
-    pub escrow: Account<'info, Escrow>,
-    #[account(
-        mut,
-        associated_token::mint = mint,
-        associated_token::authority = seller,
-        associated_token::token_program = token_program
-    )]
-    pub seller_ata: InterfaceAccount<'info, TokenAccount>,
-    #[account(
-            init_if_needed,
-            payer = seller,
-            associated_token::mint = mint,
-            associated_token::authority = escrow,
-            associated_token::token_program = token_program
-        )]
-    pub escrow_ata: InterfaceAccount<'info, TokenAccount>,
-    pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token2022>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-}
 
 pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
     let seller: &mut Signer<'_> = &mut ctx.accounts.seller;
@@ -45,7 +14,7 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
     let escrow_ata = &mut ctx.accounts.escrow_ata;
     let system_program = &mut ctx.accounts.system_program;
     let token_program = &mut ctx.accounts.token_program;
-    let mint= &mut ctx.accounts.mint;
+    let mint = &mut ctx.accounts.mint;
 
     // check state of the escrow if the buyer already funded
     require!(
@@ -63,7 +32,10 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
         EscrowType::TOKEN2SOL => {
             // Expectinh the seller to send in sol to the PDA
             // check if the seller has enough in his balance
-            require!(seller.to_account_info().lamports() >= escrow.receive_amount, EscrowError::InsufficientBalance);
+            require!(
+                seller.to_account_info().lamports() >= escrow.receive_amount,
+                EscrowError::InsufficientBalance
+            );
 
             // check for overflow
             escrow
@@ -103,8 +75,8 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
                     authority: seller.to_account_info(),
                     mint: mint.to_account_info(),
                     to: escrow.to_account_info(),
-                    from: seller.to_account_info()
-                }
+                    from: seller.to_account_info(),
+                },
             );
 
             transfer_checked(transfer_ctx, escrow.receive_amount, 10)?;
@@ -114,13 +86,44 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
     escrow.state = EscrowState::AssetSent;
 
     // emit event
-    emit!(
-        EscrowAssetSent {
-            escrow: escrow.key(),
-            seller: escrow.seller,
-            amount: escrow.receive_amount,
-        }
-    );
+    emit!(EscrowAssetSent {
+        escrow: escrow.key(),
+        seller: escrow.seller,
+        amount: escrow.receive_amount,
+    });
 
     Ok(())
+}
+
+#[derive(Accounts)]
+pub struct SendAsset<'info> {
+    #[account(mut)]
+    pub seller: Signer<'info>,
+    /// CHECK: Mint of the token to transfer
+    pub mint: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        seeds = [ESCROW_SEED.as_bytes(), escrow.escrow_id.as_bytes(), escrow.buyer.as_ref(), seller.key().as_ref()],
+        bump = escrow.bump,
+        constraint = escrow.seller == seller.key() @ EscrowError::UnauthorizedSeller
+    )]
+    pub escrow: Account<'info, Escrow>,
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = seller,
+        associated_token::token_program = token_program
+    )]
+    pub seller_ata: InterfaceAccount<'info, TokenAccount>,
+    #[account(
+            init_if_needed,
+            payer = seller,
+            associated_token::mint = mint,
+            associated_token::authority = escrow,
+            associated_token::token_program = token_program
+        )]
+    pub escrow_ata: InterfaceAccount<'info, TokenAccount>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token2022>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 }

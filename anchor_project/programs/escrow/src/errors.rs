@@ -32,7 +32,7 @@ pub enum EscrowError {
     #[msg("Escrow Not Funded")]
     EscrowNotFunded,
 
-    #[msg("Invalid State Transition")]
+    #[msg("Invalid State")]
     InvalidStateTransition,
 
     #[msg("Insufficient Balance")]

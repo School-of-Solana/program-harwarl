@@ -19,6 +19,11 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
     let system_program = &mut ctx.accounts.system_program;
     let token_program = &mut ctx.accounts.token_program;
 
+    require!(
+        escrow.expiry > Clock::get()?.unix_timestamp,
+        EscrowError::EscrowExpired
+    );
+
     // check state of the escrow
     require!(
         escrow.state == EscrowState::Active,
@@ -33,7 +38,10 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
         EscrowType::SOL2TOKEN => {
             // fund the escrow with SOl
             // check for sufficient balance
-            require!(buyer.to_account_info().lamports() >= escrow.receive_amount, EscrowError::InsufficientBalance);
+            require!(
+                buyer.to_account_info().lamports() >= escrow.receive_amount,
+                EscrowError::InsufficientBalance
+            );
             // check for overflow
             escrow
                 .to_account_info()
