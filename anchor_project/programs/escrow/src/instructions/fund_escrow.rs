@@ -55,7 +55,7 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
                 ],
             )?;
         },
-        
+
         EscrowType::TOKEN2SOL | EscrowType::TOKEN2TOKEN => {
             // fund the escrow ata with token
             // check for overflow
@@ -74,6 +74,9 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
             transfer_checked(transfer_ctx, escrow.deposit_amount, 10)?;
         }
     }
+
+    escrow.state = EscrowState::Funded;
+    
     Ok(())
 }
 

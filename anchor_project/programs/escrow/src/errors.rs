@@ -22,4 +22,13 @@ pub enum EscrowError {
 
     #[msg("Only the buyer can perform this action")]
     UnauthorizedBuyer,
+
+    #[msg("Only the seller can perform this action")]
+    UnauthorizedSeller,
+
+    #[msg("Escrow Expired")]
+    EscrowExpired,
+
+    #[msg("Invalid State transition")]
+    InvalidStateTransition
 }

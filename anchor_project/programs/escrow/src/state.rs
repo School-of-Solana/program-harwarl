@@ -8,6 +8,7 @@ pub const ESCROW_SEED: &str = "ESCROW_SEED";
 pub enum EscrowState {
     Pending,
     Active,
+    Funded,
     AssetSent,
     Released,
     Closed,

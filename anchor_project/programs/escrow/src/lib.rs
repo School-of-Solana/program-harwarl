@@ -38,14 +38,14 @@ pub mod escrow {
             expiry,
         )
     }
+    pub fn accept_escrow(ctx: Context<AcceptEscrow>) -> Result<()> {
+        _accept_escrow(ctx)
+    }
 
     pub fn fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
-        todo!()
+        _fund_escrow(ctx)
     }
 
-    pub fn accept_escrow(ctx: Context<AcceptEscrow>) -> Result<()> {
-        todo!()
-    }
 
     pub fn send_asset(ctx: Context<SendAsset>) -> Result<()> {
         todo!()
