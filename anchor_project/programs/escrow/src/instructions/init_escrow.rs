@@ -9,7 +9,7 @@ pub struct InitializeEscrow<'info> {
     /// CHECK this is just the sellers account
     pub seller: AccountInfo<'info>,
     #[account(
-        init, 
+        init,
         payer = buyer,
         space = 8 + Escrow::INIT_SPACE,
         seeds = [ESCROW_SEED.as_bytes(), escrow_id.as_bytes(), buyer.key().as_ref(), seller.key().as_ref()],

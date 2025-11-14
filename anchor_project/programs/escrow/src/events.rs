@@ -12,6 +12,7 @@ pub struct EscrowCreated {
 #[event]
 pub struct EscrowFunded {
     pub escrow: Pubkey,
+    pub mint: Pubkey,
     pub amount: u64,
     pub funded: u64,
 }
@@ -23,8 +24,9 @@ pub struct EscrowAccepted {
 }
 
 #[event]
-pub struct AssetSent {
+pub struct EscrowAssetSent {
     pub escrow: Pubkey,
+    pub seller: Pubkey,
     pub amount: u64,
 }
 

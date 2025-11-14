@@ -19,17 +19,21 @@ pub fn _accept_escrow(ctx: Context<AcceptEscrow>) -> Result<()> {
     let escrow = &mut ctx.accounts.escrow;
     let seller = &mut ctx.accounts.seller;
 
-    require!(escrow.expiry > Clock::get()?.unix_timestamp, EscrowError::EscrowExpired);
-    require!(escrow.state == EscrowState::Pending, EscrowError::InvalidStateTransition);
+    require!(
+        escrow.expiry > Clock::get()?.unix_timestamp,
+        EscrowError::EscrowExpired
+    );
+    require!(
+        escrow.state == EscrowState::Pending,
+        EscrowError::InvalidStateTransition
+    );
 
     escrow.state = EscrowState::Active;
 
-    emit!(
-        EscrowAccepted {
-            escrow: escrow.key(),
-            seller: seller.key()
-        }
-    );
+    emit!(EscrowAccepted {
+        escrow: escrow.key(),
+        seller: seller.key()
+    });
 
     Ok(())
 }

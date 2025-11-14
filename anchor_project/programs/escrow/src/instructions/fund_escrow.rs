@@ -1,4 +1,5 @@
 use crate::errors::*;
+use crate::events::EscrowFunded;
 use crate::state::*;
 use anchor_lang::prelude::program::invoke;
 use anchor_lang::prelude::system_instruction::transfer;
@@ -24,12 +25,6 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
         EscrowError::EscrowNotActive
     );
 
-    // check if the mint address matches what was agreed on
-    require!(
-        mint.key() == escrow.deposit_mint,
-        EscrowError::InvalidDepositMint
-    );
-
     // check if th ebuyer is the. one funding
     require!(buyer.key() == escrow.buyer, EscrowError::UnauthorizedBuyer);
 
@@ -37,6 +32,8 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
     match escrow.escrow_type {
         EscrowType::SOL2TOKEN => {
             // fund the escrow with SOl
+            // check for sufficient balance
+            require!(buyer.to_account_info().lamports() >= escrow.receive_amount, EscrowError::InsufficientBalance);
             // check for overflow
             escrow
                 .to_account_info()
@@ -54,12 +51,27 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
                     system_program.to_account_info(),
                 ],
             )?;
-        },
+        }
 
         EscrowType::TOKEN2SOL | EscrowType::TOKEN2TOKEN => {
             // fund the escrow ata with token
+            // check if the mint address matches what was agreed on
+            require!(
+                mint.key() == escrow.deposit_mint,
+                EscrowError::InvalidDepositMint
+            );
+
+            // check if the buyer has sufficient balance
+            require!(
+                buyer_ata.amount > escrow.deposit_amount,
+                EscrowError::InsufficientBalance
+            );
+
             // check for overflow
-            escrow_ata.amount.checked_add(escrow.deposit_amount).ok_or(EscrowError::OverFlow)?;
+            escrow_ata
+                .amount
+                .checked_add(escrow.deposit_amount)
+                .ok_or(EscrowError::OverFlow)?;
 
             let transfer_ctx = CpiContext::new(
                 token_program.to_account_info(),
@@ -76,7 +88,15 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
     }
 
     escrow.state = EscrowState::Funded;
-    
+
+    // emit event
+    emit!(EscrowFunded {
+        escrow: escrow.key(),
+        mint: mint.key(),
+        amount: escrow.deposit_amount,
+        funded: escrow.deposit_amount,
+    });
+
     Ok(())
 }
 
@@ -87,7 +107,7 @@ pub struct FundEscrow<'info> {
     /// CHECK: Mint of the token to transfer
     pub mint: UncheckedAccount<'info>,
     #[account(
-        mut, 
+        mut,
         associated_token::mint = mint,
         associated_token::authority = buyer,
         associated_token::token_program = token_program
@@ -96,7 +116,8 @@ pub struct FundEscrow<'info> {
     #[account(
         mut,
         seeds = [ESCROW_SEED.as_bytes(), escrow.escrow_id.as_bytes(), buyer.key().as_ref(), escrow.seller.as_ref()],
-        bump = escrow.bump
+        bump = escrow.bump,
+        constraint = escrow.buyer == buyer.key() @ EscrowError::UnauthorizedBuyer
     )]
     pub escrow: Account<'info, Escrow>,
     #[account(

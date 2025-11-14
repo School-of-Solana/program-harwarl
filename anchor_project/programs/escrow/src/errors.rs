@@ -29,6 +29,12 @@ pub enum EscrowError {
     #[msg("Escrow Expired")]
     EscrowExpired,
 
-    #[msg("Invalid State transition")]
-    InvalidStateTransition
+    #[msg("Escrow Not Funded")]
+    EscrowNotFunded,
+
+    #[msg("Invalid State Transition")]
+    InvalidStateTransition,
+
+    #[msg("Insufficient Balance")]
+    InsufficientBalance,
 }
