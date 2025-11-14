@@ -31,7 +31,7 @@ pub struct EscrowAssetSent {
 }
 
 #[event]
-pub struct CancelEscrow {
+pub struct EscrowCancel {
     pub escrow: Pubkey,
 }
 

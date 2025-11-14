@@ -1,7 +1,9 @@
-use crate::{errors::EscrowError, state::*};
+use crate::{errors::EscrowError, events::EscrowReleased, state::*};
 use anchor_lang::prelude::{program::invoke_signed, system_instruction::transfer, *};
 use anchor_spl::{
-    associated_token::AssociatedToken, token_2022::{self, Token2022, TransferChecked}, token_interface::{Mint, TokenAccount}
+    associated_token::AssociatedToken,
+    token_2022::{self, Token2022, TransferChecked},
+    token_interface::{Mint, TokenAccount},
 };
 
 pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
@@ -24,13 +26,13 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
         EscrowError::EscrowExpired
     );
 
-    let escrow_seeds: &[&[u8]; 5] =  &[
-            ESCROW_SEED.as_bytes(),
-            escrow.escrow_id.as_bytes(),
-            escrow.buyer.as_ref(),
-            escrow.seller.as_ref(),
-            &[escrow.bump],
-        ];
+    let escrow_seeds: &[&[u8]; 5] = &[
+        ESCROW_SEED.as_bytes(),
+        escrow.escrow_id.as_bytes(),
+        escrow.buyer.as_ref(),
+        escrow.seller.as_ref(),
+        &[escrow.bump],
+    ];
 
     let signer_seeds = &[&escrow_seeds[..]];
 
@@ -55,15 +57,16 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
         // SOl Transfer using invoke signed
         let transfer_ix = transfer(&escrow.key(), &buyer.key(), escrow.receive_amount);
 
-        invoke_signed(&transfer_ix, 
+        invoke_signed(
+            &transfer_ix,
             &[
                 escrow.to_account_info(),
                 buyer.to_account_info(),
-                system_program.to_account_info()
+                system_program.to_account_info(),
             ],
-            signer_seeds)?;
+            signer_seeds,
+        )?;
     }
-
 
     // Transfer Buyer Asset to the Seller
     if escrow.deposit_mint != Pubkey::default() {
@@ -88,17 +91,25 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
         // Sol Transfer using invoke signed
         let transfer_ix = transfer(&escrow.key(), &seller.key(), escrow.deposit_amount);
 
-        invoke_signed(&transfer_ix, 
+        invoke_signed(
+            &transfer_ix,
             &[
                 escrow.to_account_info(),
                 seller.to_account_info(),
-                system_program.to_account_info()
+                system_program.to_account_info(),
             ],
-            signer_seeds)?;
+            signer_seeds,
+        )?;
     }
 
     // handle the sending of funds to the buyer and the seller
     escrow.state = EscrowState::Released;
+
+    emit!(
+        EscrowReleased {
+            escrow: escrow.key()
+        }
+    );
 
     Ok(())
 }

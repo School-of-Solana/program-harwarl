@@ -55,10 +55,10 @@ pub mod escrow {
     }
 
     pub fn cancel_escrow(ctx: Context<CancelEscrow>) -> Result<()> {
-        todo!()
+        _cancel_escrow(ctx)
     }
 
-    pub fn auto_release(ctx: Context<AutoRelease>) -> Result<()> {
-        todo!()
-    }
+    // pub fn auto_release(ctx: Context<AutoRelease>) -> Result<()> {
+    //     todo!()
+    // }
 }
