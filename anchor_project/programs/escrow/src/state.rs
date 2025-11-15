@@ -15,14 +15,6 @@ pub enum EscrowState {
     Cancel,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, InitSpace)]
-pub enum EscrowType {
-    // SOL2SOL,
-    SOL2TOKEN,
-    TOKEN2SOL,
-    TOKEN2TOKEN,
-}
-
 #[account]
 #[derive(InitSpace)]
 pub struct Escrow {
@@ -38,9 +30,6 @@ pub struct Escrow {
     pub receive_mint: Pubkey,
     pub receive_amount: u64,
     pub receive_account: Pubkey,
-
-    // Type
-    pub escrow_type: EscrowType,
 
     pub state: EscrowState,
     pub created_at: i64,

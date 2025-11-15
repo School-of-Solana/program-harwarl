@@ -11,14 +11,12 @@ declare_id!("52FQQ1ukCSkMKKKpYZvm3f3YSQKybWcrg4vdunioYKpm");
 
 #[program]
 pub mod escrow {
-    use crate::state::EscrowType;
 
     use super::*;
 
     pub fn init_escrow(
         ctx: Context<InitializeEscrow>,
         escrow_id: String,
-        escrow_type: EscrowType,
         deposit_mint: Pubkey,
         deposit_amount: u64,
         receive_mint: Pubkey,
@@ -29,7 +27,6 @@ pub mod escrow {
         _init_escrow(
             ctx,
             escrow_id,
-            escrow_type,
             deposit_mint,
             deposit_amount,
             receive_mint,

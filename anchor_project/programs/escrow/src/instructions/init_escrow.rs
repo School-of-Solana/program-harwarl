@@ -22,7 +22,6 @@ pub struct InitializeEscrow<'info> {
 pub fn _init_escrow(
     ctx: Context<InitializeEscrow>,
     escrow_id: String,
-    escrow_type: EscrowType,
     deposit_mint: Pubkey,
     deposit_amount: u64,
     receive_mint: Pubkey,
@@ -35,43 +34,43 @@ pub fn _init_escrow(
     let seller = &mut ctx.accounts.seller;
     let bump = ctx.bumps.escrow;
 
-    // Checks Addresses
-    match escrow_type {
-        EscrowType::SOL2TOKEN => {
-            require!(
-                deposit_mint == Pubkey::default(),
-                EscrowError::InvalidDepositMint
-            );
-            require!(
-                receive_mint != Pubkey::default(),
-                EscrowError::InvalidReceiveMint
-            );
-        }
-        EscrowType::TOKEN2SOL => {
-            require!(
-                deposit_mint != Pubkey::default(),
-                EscrowError::InvalidDepositMint
-            );
-            require!(
-                receive_mint == Pubkey::default(),
-                EscrowError::InvalidReceiveMint
-            );
-        }
-        EscrowType::TOKEN2TOKEN => {
-            require!(
-                deposit_mint != Pubkey::default(),
-                EscrowError::InvalidDepositMint
-            );
-            require!(
-                receive_mint != Pubkey::default(),
-                EscrowError::InvalidReceiveMint
-            );
-            require!(
-                deposit_mint != receive_mint,
-                EscrowError::SameTokenTransferNotAllowed
-            );
-        }
-    }
+    // // Checks Addresses
+    // match escrow_type {
+    //     EscrowType::SOL2TOKEN => {
+    //         require!(
+    //             deposit_mint == Pubkey::default(),
+    //             EscrowError::InvalidDepositMint
+    //         );
+    //         require!(
+    //             receive_mint != Pubkey::default(),
+    //             EscrowError::InvalidReceiveMint
+    //         );
+    //     }
+    //     EscrowType::TOKEN2SOL => {
+    //         require!(
+    //             deposit_mint != Pubkey::default(),
+    //             EscrowError::InvalidDepositMint
+    //         );
+    //         require!(
+    //             receive_mint == Pubkey::default(),
+    //             EscrowError::InvalidReceiveMint
+    //         );
+    //     }
+    //     EscrowType::TOKEN2TOKEN => {
+    //         require!(
+    //             deposit_mint != Pubkey::default(),
+    //             EscrowError::InvalidDepositMint
+    //         );
+    //         require!(
+    //             receive_mint != Pubkey::default(),
+    //             EscrowError::InvalidReceiveMint
+    //         );
+    //         require!(
+    //             deposit_mint != receive_mint,
+    //             EscrowError::SameTokenTransferNotAllowed
+    //         );
+    //     }
+    // }
 
     require!(
         expiry > Clock::get()?.unix_timestamp,
@@ -82,7 +81,6 @@ pub fn _init_escrow(
     escrow.bump = bump;
     escrow.buyer = buyer.key();
     escrow.seller = seller.key();
-    escrow.escrow_type = escrow_type;
 
     // Deposit details
     escrow.deposit_mint = deposit_mint;

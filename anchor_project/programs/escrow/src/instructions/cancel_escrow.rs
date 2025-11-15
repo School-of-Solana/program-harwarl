@@ -147,9 +147,8 @@ pub fn _cancel_escrow(ctx: Context<CancelEscrow>) -> Result<()> {
 
     // Transfer seller asset to seller
     escrow.state = EscrowState::Cancel;
-    
 
-    emit!( EscrowCancel {
+    emit!(EscrowCancel {
         escrow: escrow.key()
     });
 

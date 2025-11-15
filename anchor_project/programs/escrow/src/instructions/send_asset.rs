@@ -1,8 +1,8 @@
 use anchor_lang::prelude::{program::invoke, system_instruction::transfer, *};
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token_2022::{transfer_checked, Token2022, TransferChecked},
-    token_interface::TokenAccount,
+    token_2022::{Token2022, TransferChecked, transfer_checked},
+    token_interface::{Mint, TokenAccount},
 };
 
 use crate::{errors::EscrowError, events::EscrowAssetSent, state::*};
@@ -15,6 +15,7 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
     let system_program = &mut ctx.accounts.system_program;
     let token_program = &mut ctx.accounts.token_program;
     let mint = &mut ctx.accounts.mint;
+    let receive_decimals = mint.decimals;
 
     // check state of the escrow if the buyer already funded
     require!(
@@ -28,59 +29,56 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
         EscrowError::UnauthorizedSeller
     );
 
-    match escrow.escrow_type {
-        EscrowType::TOKEN2SOL => {
-            // Expectinh the seller to send in sol to the PDA
-            // check if the seller has enough in his balance
-            require!(
-                seller.to_account_info().lamports() >= escrow.receive_amount,
-                EscrowError::InsufficientBalance
-            );
+    if escrow.receive_mint == Pubkey::default() {
+        // Expecting the seller to send in sol to the PDA
+        // check if the seller has enough in his balance
+        require!(
+            seller.to_account_info().lamports() >= escrow.receive_amount,
+            EscrowError::InsufficientBalance
+        );
 
-            // check for overflow
-            escrow
-                .to_account_info()
-                .lamports()
-                .checked_add(escrow.receive_amount)
-                .ok_or(EscrowError::OverFlow)?;
+        // check for overflow
+        escrow
+            .to_account_info()
+            .lamports()
+            .checked_add(escrow.receive_amount)
+            .ok_or(EscrowError::OverFlow)?;
 
-            let transfer_ctx = transfer(&seller.key(), &escrow.key(), escrow.receive_amount);
+        let transfer_ctx = transfer(&seller.key(), &escrow.key(), escrow.receive_amount);
 
-            invoke(
-                &transfer_ctx,
-                &[
-                    seller.to_account_info(),
-                    escrow.to_account_info(),
-                    system_program.to_account_info(),
-                ],
-            )?;
-        }
-        EscrowType::SOL2TOKEN | EscrowType::TOKEN2TOKEN => {
-            // Expecting the seller to send in token to the PDA
-            // check if the seller has sufficient balance
-            require!(
-                seller_ata.amount > escrow.deposit_amount,
-                EscrowError::InsufficientBalance
-            );
+        invoke(
+            &transfer_ctx,
+            &[
+                seller.to_account_info(),
+                escrow.to_account_info(),
+                system_program.to_account_info(),
+            ],
+        )?;
+    } else {
+        // Expecting the seller to send in token to the PDA
+        // check if the seller has sufficient balance
+        require!(
+            seller_ata.amount > escrow.deposit_amount,
+            EscrowError::InsufficientBalance
+        );
 
-            // check for overflow
-            escrow_ata
-                .amount
-                .checked_add(escrow.receive_amount)
-                .ok_or(EscrowError::OverFlow)?;
+        // check for overflow
+        escrow_ata
+            .amount
+            .checked_add(escrow.receive_amount)
+            .ok_or(EscrowError::OverFlow)?;
 
-            let transfer_ctx = CpiContext::new(
-                token_program.to_account_info(),
-                TransferChecked {
-                    authority: seller.to_account_info(),
-                    mint: mint.to_account_info(),
-                    to: escrow.to_account_info(),
-                    from: seller.to_account_info(),
-                },
-            );
+        let transfer_ctx = CpiContext::new(
+            token_program.to_account_info(),
+            TransferChecked {
+                authority: seller.to_account_info(),
+                mint: mint.to_account_info(),
+                to: escrow.to_account_info(),
+                from: seller.to_account_info(),
+            },
+        );
 
-            transfer_checked(transfer_ctx, escrow.receive_amount, 10)?;
-        }
+        transfer_checked(transfer_ctx, escrow.receive_amount, 10)?;
     }
 
     escrow.state = EscrowState::AssetSent;
@@ -100,7 +98,7 @@ pub struct SendAsset<'info> {
     #[account(mut)]
     pub seller: Signer<'info>,
     /// CHECK: Mint of the token to transfer
-    pub mint: UncheckedAccount<'info>,
+    pub mint: InterfaceAccount<'info, Mint>,
     #[account(
         mut,
         seeds = [ESCROW_SEED.as_bytes(), escrow.escrow_id.as_bytes(), escrow.buyer.as_ref(), seller.key().as_ref()],

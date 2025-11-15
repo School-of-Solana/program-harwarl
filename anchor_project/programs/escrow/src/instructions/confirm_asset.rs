@@ -105,11 +105,9 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
     // handle the sending of funds to the buyer and the seller
     escrow.state = EscrowState::Released;
 
-    emit!(
-        EscrowReleased {
-            escrow: escrow.key()
-        }
-    );
+    emit!(EscrowReleased {
+        escrow: escrow.key()
+    });
 
     Ok(())
 }
@@ -133,10 +131,10 @@ pub struct ConfirmAsset<'info> {
     )]
     pub escrow: Account<'info, Escrow>,
 
-    /// CHECK: Mint of the deposit token to transfer
+    #[account(mut)]
     pub deposit_mint: InterfaceAccount<'info, Mint>,
 
-    /// CHECK: Mint of the deposit token to transfer
+    #[account(mut)]
     pub receive_mint: InterfaceAccount<'info, Mint>,
 
     #[account(
