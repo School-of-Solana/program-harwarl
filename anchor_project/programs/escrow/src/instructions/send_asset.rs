@@ -78,7 +78,7 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
             },
         );
 
-        transfer_checked(transfer_ctx, escrow.receive_amount, 10)?;
+        transfer_checked(transfer_ctx, escrow.receive_amount, receive_decimals)?;
     }
 
     escrow.state = EscrowState::AssetSent;

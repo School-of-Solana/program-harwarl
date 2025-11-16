@@ -13,7 +13,9 @@ pub struct InitializeEscrow<'info> {
         payer = buyer,
         space = 8 + Escrow::INIT_SPACE,
         seeds = [ESCROW_SEED.as_bytes(), escrow_id.as_bytes(), buyer.key().as_ref(), seller.key().as_ref()],
-        bump
+        bump,
+        constraint = escrow_id.len() > 0 @ EscrowError::IdTooShort,
+        constraint = escrow_id.len() <= ESCROW_ID_LENGTH @ EscrowError::IdTooLong
     )]
     pub escrow: Account<'info, Escrow>,
     pub system_program: Program<'info, System>,
@@ -34,48 +36,18 @@ pub fn _init_escrow(
     let seller = &mut ctx.accounts.seller;
     let bump = ctx.bumps.escrow;
 
-    // // Checks Addresses
-    // match escrow_type {
-    //     EscrowType::SOL2TOKEN => {
-    //         require!(
-    //             deposit_mint == Pubkey::default(),
-    //             EscrowError::InvalidDepositMint
-    //         );
-    //         require!(
-    //             receive_mint != Pubkey::default(),
-    //             EscrowError::InvalidReceiveMint
-    //         );
-    //     }
-    //     EscrowType::TOKEN2SOL => {
-    //         require!(
-    //             deposit_mint != Pubkey::default(),
-    //             EscrowError::InvalidDepositMint
-    //         );
-    //         require!(
-    //             receive_mint == Pubkey::default(),
-    //             EscrowError::InvalidReceiveMint
-    //         );
-    //     }
-    //     EscrowType::TOKEN2TOKEN => {
-    //         require!(
-    //             deposit_mint != Pubkey::default(),
-    //             EscrowError::InvalidDepositMint
-    //         );
-    //         require!(
-    //             receive_mint != Pubkey::default(),
-    //             EscrowError::InvalidReceiveMint
-    //         );
-    //         require!(
-    //             deposit_mint != receive_mint,
-    //             EscrowError::SameTokenTransferNotAllowed
-    //         );
-    //     }
-    // }
-
     require!(
         expiry > Clock::get()?.unix_timestamp,
         EscrowError::InvalidExpiryDate
     );
+
+    println!("deposit_mint:{}", deposit_mint);
+    println!("receive_mint:{}", receive_mint);
+
+    require!(buyer.key() != seller.key(), EscrowError::SameBuyerSellerNotAllowed);
+    require!(deposit_amount > 0, EscrowError::InvalidDepositAmount);
+    require!(receive_amount > 0, EscrowError::InvalidReceiveAmount);
+    require!(deposit_mint != receive_mint, EscrowError::SameTokenTransferNotAllowed);
 
     // initialize escrow state
     escrow.bump = bump;

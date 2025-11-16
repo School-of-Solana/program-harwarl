@@ -14,6 +14,9 @@ pub enum EscrowError {
     #[msg("Token to the same token is not allowed")]
     SameTokenTransferNotAllowed,
 
+    #[msg("Token to same buyer and seller is not allowed")]
+    SameBuyerSellerNotAllowed,
+
     #[msg("Invalid Expiry date")]
     InvalidExpiryDate,
 
@@ -37,4 +40,16 @@ pub enum EscrowError {
 
     #[msg("Insufficient Balance")]
     InsufficientBalance,
+
+    #[msg("Deposit amount cannot be less than zero")]
+    InvalidDepositAmount,
+
+    #[msg("Receive amount cannot be less than zero")]
+    InvalidReceiveAmount,
+
+    #[msg("Cannot initialize, EscrowId too long")]
+    IdTooLong,
+
+    #[msg("Cannot initialize, Escrow Id not present")]
+    IdTooShort
 }

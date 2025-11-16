@@ -83,10 +83,10 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
         let transfer_ctx = CpiContext::new(
             token_program.to_account_info(),
             TransferChecked {
-                authority: buyer.to_account_info(),
+                authority: buyer_ata.to_account_info(),
                 mint: mint.to_account_info(),
-                to: escrow.to_account_info(),
-                from: buyer.to_account_info(),
+                to: escrow_ata.to_account_info(),
+                from: buyer_ata.to_account_info(),
             },
         );
 
