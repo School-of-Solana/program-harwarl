@@ -42,7 +42,10 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
             EscrowError::InsufficientBalance
         );
 
-        msg!("Lamports in sol vault: {}", sol_vault.to_account_info().lamports());
+        msg!(
+            "Lamports in sol vault: {}",
+            sol_vault.to_account_info().lamports()
+        );
 
         // check for overflow
         sol_vault

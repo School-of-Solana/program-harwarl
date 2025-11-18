@@ -10,6 +10,7 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
     let buyer = &mut ctx.accounts.buyer;
     let seller = &mut ctx.accounts.seller;
     let escrow = &mut ctx.accounts.escrow;
+    let sol_vault = &mut ctx.accounts.sol_vault;
     let system_program = &mut ctx.accounts.system_program;
     let token_program = &mut ctx.accounts.token_program;
 
@@ -19,6 +20,7 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
     let escrow_receive_ata = ctx.accounts.escrow_receive_ata.as_ref();
     let buyer_receive_ata = ctx.accounts.buyer_receive_ata.as_ref();
     let seller_receive_ata = ctx.accounts.seller_receive_ata.as_ref();
+    let vault_bump = ctx.bumps.sol_vault;
 
     // let receive_decimal = receive_mint.decimals;
     // let deposit_decimal = deposit_mint.decimals;
@@ -26,6 +28,11 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
     require!(
         escrow.expiry > Clock::get()?.unix_timestamp,
         EscrowError::EscrowExpired
+    );
+
+    require!(
+        escrow.state == EscrowState::AssetSent,
+        EscrowError::InvalidStateTransition
     );
 
     let escrow_seeds: &[&[u8]; 5] = &[
@@ -36,7 +43,11 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
         &[escrow.bump],
     ];
 
-    let signer_seeds = &[&escrow_seeds[..]];
+    let escrow_key: Pubkey = escrow.key();
+    let escrow_key_ref: &[u8] = escrow_key.as_ref();
+    let vault_seeds = &[b"sol_vault", escrow_key_ref, &[vault_bump]];
+    let signer_seeds = &[&vault_seeds[..]];
+    let escrow_signer_seeds = &[&escrow_seeds[..]];
 
     // Transfer seller asset to buyer
     if escrow.receive_mint != Pubkey::default() {
@@ -55,18 +66,18 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
         let transfer_ctx = CpiContext::new_with_signer(
             token_program.to_account_info(),
             cpi_accounts,
-            signer_seeds,
+            escrow_signer_seeds,
         );
 
         token_2022::transfer_checked(transfer_ctx, escrow.receive_amount, mint.decimals)?;
     } else {
         // SOl Transfer using invoke signed
-        let transfer_ix = transfer(&escrow.key(), &buyer.key(), escrow.receive_amount);
+        let transfer_ix = transfer(&sol_vault.key(), &buyer.key(), escrow.receive_amount);
 
         invoke_signed(
             &transfer_ix,
             &[
-                escrow.to_account_info(),
+                sol_vault.to_account_info(),
                 buyer.to_account_info(),
                 system_program.to_account_info(),
             ],
@@ -85,25 +96,25 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
             from: from_ata.to_account_info(),
             mint: mint.to_account_info(),
             to: to_ata.to_account_info(),
-            authority: from_ata.to_account_info(),
+            authority: escrow.to_account_info(),
         };
 
         let transfer_ctx = CpiContext::new_with_signer(
             token_program.to_account_info(),
             cpi_accounts,
-            signer_seeds,
+            escrow_signer_seeds,
         );
 
         token_2022::transfer_checked(transfer_ctx, escrow.deposit_amount, mint.decimals)?;
     } else {
         // Sol transfer to seller
         // Sol Transfer using invoke signed
-        let transfer_ix = transfer(&escrow.key(), &seller.key(), escrow.deposit_amount);
+        let transfer_ix = transfer(&sol_vault.key(), &seller.key(), escrow.deposit_amount);
 
         invoke_signed(
             &transfer_ix,
             &[
-                escrow.to_account_info(),
+                sol_vault.to_account_info(),
                 seller.to_account_info(),
                 system_program.to_account_info(),
             ],
@@ -139,6 +150,13 @@ pub struct ConfirmAsset<'info> {
         constraint = escrow.state == EscrowState::AssetSent @ EscrowError::InvalidStateTransition
     )]
     pub escrow: Account<'info, Escrow>,
+    /// CHECK: PDA holding SOL deposits
+    #[account(
+    mut,
+    seeds = [b"sol_vault", escrow.key().as_ref()],
+    bump,
+    )]
+    pub sol_vault: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub deposit_mint: Option<InterfaceAccount<'info, Mint>>,

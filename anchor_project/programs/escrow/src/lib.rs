@@ -54,7 +54,5 @@ pub mod escrow {
         _cancel_escrow(ctx)
     }
 
-    // pub fn auto_release(ctx: Context<AutoRelease>) -> Result<()> {
-    //     todo!()
-    // }
+    
 }
