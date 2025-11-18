@@ -10,16 +10,18 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
     let buyer = &mut ctx.accounts.buyer;
     let seller = &mut ctx.accounts.seller;
     let escrow = &mut ctx.accounts.escrow;
-    let escrow_deposit_ata = &mut ctx.accounts.escrow_deposit_ata;
-    let escrow_receive_ata = &mut ctx.accounts.escrow_receive_ata;
-    let buyer_receive_ata = &mut ctx.accounts.buyer_receive_ata;
-    let seller_receive_ata = &mut ctx.accounts.seller_receive_ata;
     let system_program = &mut ctx.accounts.system_program;
     let token_program = &mut ctx.accounts.token_program;
-    let receive_mint = &mut ctx.accounts.receive_mint;
-    let deposit_mint = &mut ctx.accounts.deposit_mint;
-    let receive_decimal = receive_mint.decimals;
-    let deposit_decimal = deposit_mint.decimals;
+
+    let deposit_mint = ctx.accounts.deposit_mint.as_ref();
+    let receive_mint = ctx.accounts.receive_mint.as_ref();
+    let escrow_deposit_ata = ctx.accounts.escrow_deposit_ata.as_ref();
+    let escrow_receive_ata = ctx.accounts.escrow_receive_ata.as_ref();
+    let buyer_receive_ata = ctx.accounts.buyer_receive_ata.as_ref();
+    let seller_receive_ata = ctx.accounts.seller_receive_ata.as_ref();
+
+    // let receive_decimal = receive_mint.decimals;
+    // let deposit_decimal = deposit_mint.decimals;
 
     require!(
         escrow.expiry > Clock::get()?.unix_timestamp,
@@ -38,12 +40,16 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
 
     // Transfer seller asset to buyer
     if escrow.receive_mint != Pubkey::default() {
+        let mint = receive_mint.unwrap();
+        let from_ata = escrow_receive_ata.unwrap();
+        let to_ata = buyer_receive_ata.unwrap();
+
         // Token tranfer
         let cpi_accounts = TransferChecked {
-            from: escrow_receive_ata.to_account_info(),
-            mint: receive_mint.to_account_info(),
-            to: buyer_receive_ata.to_account_info(),
-            authority: escrow_receive_ata.to_account_info(),
+            from: from_ata.to_account_info(),
+            mint: mint.to_account_info(),
+            to: to_ata.to_account_info(),
+            authority: escrow.to_account_info(),
         };
 
         let transfer_ctx = CpiContext::new_with_signer(
@@ -52,7 +58,7 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
             signer_seeds,
         );
 
-        token_2022::transfer_checked(transfer_ctx, escrow.receive_amount, receive_decimal)?;
+        token_2022::transfer_checked(transfer_ctx, escrow.receive_amount, mint.decimals)?;
     } else {
         // SOl Transfer using invoke signed
         let transfer_ix = transfer(&escrow.key(), &buyer.key(), escrow.receive_amount);
@@ -71,12 +77,15 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
     // Transfer Buyer Asset to the Seller
     if escrow.deposit_mint != Pubkey::default() {
         // Token Transfer to seller
+        let mint = deposit_mint.unwrap();
+        let from_ata = escrow_deposit_ata.unwrap();
+        let to_ata = seller_receive_ata.unwrap();
         // Token tranfer
         let cpi_accounts = TransferChecked {
-            from: escrow_deposit_ata.to_account_info(),
-            mint: deposit_mint.to_account_info(),
-            to: seller_receive_ata.to_account_info(),
-            authority: escrow_deposit_ata.to_account_info(),
+            from: from_ata.to_account_info(),
+            mint: mint.to_account_info(),
+            to: to_ata.to_account_info(),
+            authority: from_ata.to_account_info(),
         };
 
         let transfer_ctx = CpiContext::new_with_signer(
@@ -85,7 +94,7 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
             signer_seeds,
         );
 
-        token_2022::transfer_checked(transfer_ctx, escrow.deposit_amount, deposit_decimal)?;
+        token_2022::transfer_checked(transfer_ctx, escrow.deposit_amount, mint.decimals)?;
     } else {
         // Sol transfer to seller
         // Sol Transfer using invoke signed
@@ -132,26 +141,16 @@ pub struct ConfirmAsset<'info> {
     pub escrow: Account<'info, Escrow>,
 
     #[account(mut)]
-    pub deposit_mint: InterfaceAccount<'info, Mint>,
+    pub deposit_mint: Option<InterfaceAccount<'info, Mint>>,
 
     #[account(mut)]
-    pub receive_mint: InterfaceAccount<'info, Mint>,
+    pub receive_mint: Option<InterfaceAccount<'info, Mint>>,
 
-    #[account(
-            mut,
-            associated_token::mint = deposit_mint,
-            associated_token::authority = escrow,
-            associated_token::token_program = token_program
-        )]
-    pub escrow_deposit_ata: InterfaceAccount<'info, TokenAccount>,
+    #[account(mut)]
+    pub escrow_deposit_ata: Option<InterfaceAccount<'info, TokenAccount>>,
 
-    #[account(
-            mut,
-            associated_token::mint = receive_mint,
-            associated_token::authority = escrow,
-            associated_token::token_program = token_program
-        )]
-    pub escrow_receive_ata: InterfaceAccount<'info, TokenAccount>,
+    #[account(mut)]
+    pub escrow_receive_ata: Option<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         init_if_needed,
@@ -160,7 +159,7 @@ pub struct ConfirmAsset<'info> {
         associated_token::authority = buyer,
         associated_token::token_program = token_program,
     )]
-    pub buyer_receive_ata: InterfaceAccount<'info, TokenAccount>,
+    pub buyer_receive_ata: Option<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         init_if_needed,
@@ -169,7 +168,7 @@ pub struct ConfirmAsset<'info> {
         associated_token::authority = seller,
         associated_token::token_program = token_program,
     )]
-    pub seller_receive_ata: InterfaceAccount<'info, TokenAccount>,
+    pub seller_receive_ata: Option<InterfaceAccount<'info, TokenAccount>>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token2022>,

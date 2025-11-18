@@ -1,7 +1,11 @@
-use anchor_lang::prelude::{program::invoke, system_instruction::transfer, *};
+use anchor_lang::prelude::{
+    program::invoke,
+    system_instruction::{create_account, transfer},
+    *,
+};
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token_2022::{Token2022, TransferChecked, transfer_checked},
+    token_2022::{transfer_checked, Token2022, TransferChecked},
     token_interface::{Mint, TokenAccount},
 };
 
@@ -9,8 +13,9 @@ use crate::{errors::EscrowError, events::EscrowAssetSent, state::*};
 
 pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
     let seller: &mut Signer<'_> = &mut ctx.accounts.seller;
-    let seller_ata = &mut ctx.accounts.seller_ata;
+    let seller_ata: &mut InterfaceAccount<'_, TokenAccount> = &mut ctx.accounts.seller_ata;
     let escrow: &mut Account<'_, Escrow> = &mut ctx.accounts.escrow;
+    let sol_vault = &mut ctx.accounts.sol_vault;
     let escrow_ata = &mut ctx.accounts.escrow_ata;
     let system_program = &mut ctx.accounts.system_program;
     let token_program = &mut ctx.accounts.token_program;
@@ -37,20 +42,22 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
             EscrowError::InsufficientBalance
         );
 
+        msg!("Lamports in sol vault: {}", sol_vault.to_account_info().lamports());
+
         // check for overflow
-        escrow
+        sol_vault
             .to_account_info()
             .lamports()
             .checked_add(escrow.receive_amount)
             .ok_or(EscrowError::OverFlow)?;
 
-        let transfer_ctx = transfer(&seller.key(), &escrow.key(), escrow.receive_amount);
+        let transfer_ctx = transfer(&seller.key(), &sol_vault.key(), escrow.receive_amount);
 
         invoke(
             &transfer_ctx,
             &[
                 seller.to_account_info(),
-                escrow.to_account_info(),
+                sol_vault.to_account_info(),
                 system_program.to_account_info(),
             ],
         )?;
@@ -73,8 +80,8 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
             TransferChecked {
                 authority: seller.to_account_info(),
                 mint: mint.to_account_info(),
-                to: escrow.to_account_info(),
-                from: seller.to_account_info(),
+                to: escrow_ata.to_account_info(),
+                from: seller_ata.to_account_info(),
             },
         );
 
@@ -106,6 +113,9 @@ pub struct SendAsset<'info> {
         constraint = escrow.seller == seller.key() @ EscrowError::UnauthorizedSeller
     )]
     pub escrow: Account<'info, Escrow>,
+    /// CHECK: PDA holding SOL deposits
+    #[account(mut, seeds = [b"sol_vault", escrow.key().as_ref()], bump)]
+    pub sol_vault: UncheckedAccount<'info>,
     #[account(
         mut,
         associated_token::mint = mint,

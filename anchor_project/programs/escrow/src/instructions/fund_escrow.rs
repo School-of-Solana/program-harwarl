@@ -13,6 +13,7 @@ use anchor_spl::{
 
 pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
     let escrow = &mut ctx.accounts.escrow;
+    let sol_vault = &mut ctx.accounts.sol_vault;
     let mint = &mut ctx.accounts.mint;
     let buyer = &mut ctx.accounts.buyer;
     let buyer_ata = &mut ctx.accounts.buyer_ata;
@@ -40,23 +41,23 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
         // fund the escrow with SOl
         // check for sufficient balance
         require!(
-            buyer.to_account_info().lamports() >= escrow.receive_amount,
+            buyer.to_account_info().lamports() >= escrow.deposit_amount,
             EscrowError::InsufficientBalance
         );
         // check for overflow
-        escrow
+        sol_vault
             .to_account_info()
             .lamports()
             .checked_add(escrow.deposit_amount)
             .ok_or(EscrowError::OverFlow)?;
 
-        let transfer_ctx = transfer(&buyer.key(), &escrow.key(), escrow.deposit_amount);
+        let transfer_ctx = transfer(&buyer.key(), &sol_vault.key(), escrow.deposit_amount);
 
         invoke(
             &transfer_ctx,
             &[
                 buyer.to_account_info(),
-                escrow.to_account_info(),
+                sol_vault.to_account_info(),
                 system_program.to_account_info(),
             ],
         )?;
@@ -83,7 +84,7 @@ pub fn _fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
         let transfer_ctx = CpiContext::new(
             token_program.to_account_info(),
             TransferChecked {
-                authority: buyer_ata.to_account_info(),
+                authority: buyer.to_account_info(),
                 mint: mint.to_account_info(),
                 to: escrow_ata.to_account_info(),
                 from: buyer_ata.to_account_info(),
@@ -112,8 +113,10 @@ pub struct FundEscrow<'info> {
     pub buyer: Signer<'info>,
     #[account(mut)]
     pub mint: InterfaceAccount<'info, Mint>,
+
     #[account(
-        mut,
+        init_if_needed,
+        payer = buyer,
         associated_token::mint = mint,
         associated_token::authority = buyer,
         associated_token::token_program = token_program
@@ -126,6 +129,13 @@ pub struct FundEscrow<'info> {
         constraint = escrow.buyer == buyer.key() @ EscrowError::UnauthorizedBuyer
     )]
     pub escrow: Account<'info, Escrow>,
+    /// CHECK: PDA holding SOL deposits
+    #[account(
+    mut,
+    seeds = [b"sol_vault", escrow.key().as_ref()],
+    bump
+)]
+    pub sol_vault: UncheckedAccount<'info>,
     #[account(
             init_if_needed,
             payer = buyer,

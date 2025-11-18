@@ -14,6 +14,6 @@ pub struct AutoRelease<'info> {
     pub escrow: Account<'info, Escrow>,
 }
 
-pub fn _auto_release(ctx: Context<AutoRelease>) -> Result<()> {
+pub fn _auto_release(_ctx: Context<AutoRelease>) -> Result<()> {
     todo!()
 }

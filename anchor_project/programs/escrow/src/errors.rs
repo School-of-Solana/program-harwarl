@@ -51,5 +51,5 @@ pub enum EscrowError {
     IdTooLong,
 
     #[msg("Cannot initialize, Escrow Id not present")]
-    IdTooShort
+    IdTooShort,
 }

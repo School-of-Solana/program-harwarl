@@ -5,7 +5,6 @@ mod state;
 
 use anchor_lang::prelude::*;
 use instructions::*;
-use state::*;
 
 declare_id!("52FQQ1ukCSkMKKKpYZvm3f3YSQKybWcrg4vdunioYKpm");
 
