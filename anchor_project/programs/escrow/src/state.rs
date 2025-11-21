@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 
 pub const ESCROW_ID_LENGTH: usize = 32;
-pub const DESCRIPTION_LENGTH: usize = 128;
 pub const ESCROW_SEED: &str = "ESCROW_SEED";
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, InitSpace)]
@@ -40,7 +39,4 @@ pub struct Escrow {
 
     #[max_len(ESCROW_ID_LENGTH)]
     pub escrow_id: String,
-
-    #[max_len(DESCRIPTION_LENGTH)]
-    pub description: String,
 }

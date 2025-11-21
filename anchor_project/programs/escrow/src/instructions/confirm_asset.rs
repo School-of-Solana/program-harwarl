@@ -22,9 +22,6 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
     let seller_receive_ata = ctx.accounts.seller_receive_ata.as_ref();
     let vault_bump = ctx.bumps.sol_vault;
 
-    // let receive_decimal = receive_mint.decimals;
-    // let deposit_decimal = deposit_mint.decimals;
-
     require!(
         escrow.expiry > Clock::get()?.unix_timestamp,
         EscrowError::EscrowExpired

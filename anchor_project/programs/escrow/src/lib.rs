@@ -6,7 +6,7 @@ mod state;
 use anchor_lang::prelude::*;
 use instructions::*;
 
-declare_id!("52FQQ1ukCSkMKKKpYZvm3f3YSQKybWcrg4vdunioYKpm");
+declare_id!("AgFvBjqrFRFmsy8FpQKyNwK3tuyLx8FtBWMys1uMFAbz");
 
 #[program]
 pub mod escrow {
@@ -20,7 +20,6 @@ pub mod escrow {
         deposit_amount: u64,
         receive_mint: Pubkey,
         receive_amount: u64,
-        description: String,
         expiry: i64,
     ) -> Result<()> {
         _init_escrow(
@@ -30,7 +29,6 @@ pub mod escrow {
             deposit_amount,
             receive_mint,
             receive_amount,
-            description,
             expiry,
         )
     }
@@ -53,6 +51,4 @@ pub mod escrow {
     pub fn cancel_escrow(ctx: Context<CancelEscrow>) -> Result<()> {
         _cancel_escrow(ctx)
     }
-
-    
 }

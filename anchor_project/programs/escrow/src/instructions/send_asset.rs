@@ -1,8 +1,4 @@
-use anchor_lang::prelude::{
-    program::invoke,
-    system_instruction::{create_account, transfer},
-    *,
-};
+use anchor_lang::prelude::{program::invoke, system_instruction::transfer, *};
 use anchor_spl::{
     associated_token::AssociatedToken,
     token_2022::{transfer_checked, Token2022, TransferChecked},
@@ -13,14 +9,16 @@ use crate::{errors::EscrowError, events::EscrowAssetSent, state::*};
 
 pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
     let seller: &mut Signer<'_> = &mut ctx.accounts.seller;
-    let seller_ata: &mut InterfaceAccount<'_, TokenAccount> = &mut ctx.accounts.seller_ata;
     let escrow: &mut Account<'_, Escrow> = &mut ctx.accounts.escrow;
     let sol_vault = &mut ctx.accounts.sol_vault;
-    let escrow_ata = &mut ctx.accounts.escrow_ata;
     let system_program = &mut ctx.accounts.system_program;
     let token_program = &mut ctx.accounts.token_program;
-    let mint = &mut ctx.accounts.mint;
-    let receive_decimals = mint.decimals;
+
+    // optionals
+
+    let escrow_ata = ctx.accounts.escrow_ata.as_ref();
+    let seller_ata = ctx.accounts.seller_ata.as_ref();
+    let mint = ctx.accounts.mint.as_ref();
 
     // check state of the escrow if the buyer already funded
     require!(
@@ -67,13 +65,17 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
     } else {
         // Expecting the seller to send in token to the PDA
         // check if the seller has sufficient balance
+        let mint = mint.unwrap();
+        let from_ata = seller_ata.unwrap();
+        let to_ata = escrow_ata.unwrap();
+
         require!(
-            seller_ata.amount > escrow.deposit_amount,
+            from_ata.amount > escrow.deposit_amount,
             EscrowError::InsufficientBalance
         );
 
         // check for overflow
-        escrow_ata
+        to_ata
             .amount
             .checked_add(escrow.receive_amount)
             .ok_or(EscrowError::OverFlow)?;
@@ -83,12 +85,12 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
             TransferChecked {
                 authority: seller.to_account_info(),
                 mint: mint.to_account_info(),
-                to: escrow_ata.to_account_info(),
-                from: seller_ata.to_account_info(),
+                to: to_ata.to_account_info(),
+                from: from_ata.to_account_info(),
             },
         );
 
-        transfer_checked(transfer_ctx, escrow.receive_amount, receive_decimals)?;
+        transfer_checked(transfer_ctx, escrow.receive_amount, mint.decimals)?;
     }
 
     escrow.state = EscrowState::AssetSent;
@@ -108,7 +110,9 @@ pub struct SendAsset<'info> {
     #[account(mut)]
     pub seller: Signer<'info>,
     /// CHECK: Mint of the token to transfer
-    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(mut)]
+    pub mint: Option<InterfaceAccount<'info, Mint>>,
+
     #[account(
         mut,
         seeds = [ESCROW_SEED.as_bytes(), escrow.escrow_id.as_bytes(), escrow.buyer.as_ref(), seller.key().as_ref()],
@@ -116,16 +120,19 @@ pub struct SendAsset<'info> {
         constraint = escrow.seller == seller.key() @ EscrowError::UnauthorizedSeller
     )]
     pub escrow: Account<'info, Escrow>,
+
     /// CHECK: PDA holding SOL deposits
     #[account(mut, seeds = [b"sol_vault", escrow.key().as_ref()], bump)]
     pub sol_vault: UncheckedAccount<'info>,
+
     #[account(
         mut,
         associated_token::mint = mint,
         associated_token::authority = seller,
         associated_token::token_program = token_program
     )]
-    pub seller_ata: InterfaceAccount<'info, TokenAccount>,
+    pub seller_ata: Option<InterfaceAccount<'info, TokenAccount>>,
+
     #[account(
             init_if_needed,
             payer = seller,
@@ -133,7 +140,7 @@ pub struct SendAsset<'info> {
             associated_token::authority = escrow,
             associated_token::token_program = token_program
         )]
-    pub escrow_ata: InterfaceAccount<'info, TokenAccount>,
+    pub escrow_ata: Option<InterfaceAccount<'info, TokenAccount>>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token2022>,
     pub associated_token_program: Program<'info, AssociatedToken>,

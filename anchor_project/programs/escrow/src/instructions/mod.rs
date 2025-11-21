@@ -13,8 +13,5 @@ pub use confirm_asset::*;
 pub mod cancel_escrow;
 pub use cancel_escrow::*;
 
-// pub mod auto_release;
-// pub use auto_release::*;
-
 pub mod accept_escrow;
 pub use accept_escrow::*;

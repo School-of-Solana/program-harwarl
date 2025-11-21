@@ -8,7 +8,6 @@ pub fn _init_escrow(
     deposit_amount: u64,
     receive_mint: Pubkey,
     receive_amount: u64,
-    description: String,
     expiry: i64,
 ) -> Result<()> {
     let escrow = &mut ctx.accounts.escrow;
@@ -80,7 +79,6 @@ pub fn _init_escrow(
     escrow.expiry = expiry;
     escrow.requested_release = false;
     escrow.escrow_id = escrow_id;
-    escrow.description = description;
 
     emit!(EscrowCreated {
         escrow: escrow.key(),
