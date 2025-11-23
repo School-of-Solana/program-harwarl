@@ -1,191 +1,270 @@
+import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "./ui/dialog";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
+} from "../components/ui/dialog";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Separator } from "./ui/seperator";
+import { StatusBadge } from "../components/StatusBadge";
 import {
-  Copy,
-  ExternalLink,
-  User,
-  Coins,
   ArrowRight,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
   Clock,
+  Copy,
+  Check,
+  ExternalLink,
 } from "lucide-react";
-import { cn } from "../lib/utils";
 import { useToast } from "../hooks/use-toast";
+import type { Escrow, EscrowStatus } from "../types/escrow";
 
 interface EscrowDetailModalProps {
+  escrow: Escrow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  escrow: {
-    id: string;
-    buyer: string;
-    seller: string;
-    depositAmount: number;
-    depositToken: string;
-    receiveAmount: number;
-    receiveToken: string;
-    status: "pending" | "funded" | "completed" | "cancelled";
-    createdAt: string;
-  } | null;
 }
 
-const statusColors = {
-  pending: "bg-warning/20 text-warning border-warning/30",
-  funded: "bg-primary/20 text-primary border-primary/30",
-  completed: "bg-success/20 text-success border-success/30",
-  cancelled: "bg-destructive/20 text-destructive border-destructive/30",
-};
-
-export const EscrowDetailModal = ({
+export function EscrowDetailModal({
+  escrow,
   open,
   onOpenChange,
-  escrow,
-}: EscrowDetailModalProps) => {
+}: EscrowDetailModalProps) {
+  const { publicKey } = useWallet();
   const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
 
   if (!escrow) return null;
 
-  const handleCopyId = () => {
+  const connectedAddress = publicKey?.toString();
+  const isBuyer = connectedAddress === escrow.buyer;
+  const isSeller = connectedAddress === escrow.seller;
+
+  const copyEscrowId = () => {
     navigator.clipboard.writeText(escrow.id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
     toast({
-      title: "Copied!",
+      title: "Escrow ID Copied",
       description: "Escrow ID copied to clipboard",
     });
   };
 
-  const handleViewExplorer = () => {
-    window.open(`https://explorer.solana.com/address/${escrow.id}`, "_blank");
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const calculateTimeRemaining = () => {
+    const now = new Date();
+    const expiry = new Date(escrow.expiry);
+    console.log({ expiry });
+    const diff = expiry.getTime() - now.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    return `${days}d ${hours}h`;
   };
 
   const handleAction = (action: string) => {
     toast({
-      title: `${action} Transaction`,
-      description: `Processing ${action.toLowerCase()} transaction...`,
+      title: `${action} Initiated`,
+      description: "Processing your transaction...",
     });
+    onOpenChange(false);
+  };
+
+  const shortenAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] bg-card border-border/50 backdrop-blur-xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">
-              Escrow Details
-            </DialogTitle>
-            <Badge
-              variant="outline"
-              className={cn("capitalize", statusColors[escrow.status])}
-            >
-              {escrow.status}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <DialogTitle className="font-mono text-lg">
+                {escrow.id}
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={copyEscrowId}
+                className="h-7 w-7 p-0"
+              >
+                {copied ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </Button>
+              <Button variant="ghost" size="sm" asChild className="h-7 w-7 p-0">
+                <a
+                  href={`https://explorer.solana.com/tx/${escrow.id}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </Button>
+            </div>
+            <StatusBadge status={escrow.status as EscrowStatus} />
           </div>
-          <DialogDescription className="flex items-center gap-2 mt-2">
-            <span className="font-mono text-xs">
-              #{escrow.id.slice(0, 16)}...
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={handleCopyId}
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={handleViewExplorer}
-            >
-              <ExternalLink className="h-3 w-3" />
-            </Button>
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 mt-6">
-          <div className="p-4 rounded-lg bg-background/50 border border-border/50 space-y-4">
-            <div className="flex items-center gap-2 text-primary">
-              <User className="h-4 w-4" />
-              <h3 className="text-sm font-semibold">Buyer</h3>
+        <div className="space-y-6 mt-4">
+          {/* Assets Exchange */}
+          <div className="grid grid-cols-3 gap-4 items-center">
+            <div className="text-center">
+              <Badge variant="outline" className="mb-2">
+                You Deposit
+              </Badge>
+              <div className="p-4 rounded-lg border border-primary/30 bg-gradient-card">
+                <p className="text-sm text-primary-foreground/80 mb-1">
+                  {escrow.depositAsset}
+                </p>
+                <p className="text-2xl font-bold text-primary-foreground">
+                  {escrow.depositAmount}
+                </p>
+              </div>
             </div>
-            <div className="pl-6 space-y-2">
-              <p className="text-sm font-mono text-foreground">
-                {escrow.buyer}
-              </p>
-              <div className="flex items-center gap-2">
-                <Coins className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Deposits:</span>
-                <span className="text-sm font-semibold text-primary">
-                  {escrow.depositAmount} {escrow.depositToken}
-                </span>
+
+            <div className="flex items-center justify-center">
+              <ArrowRight className="w-8 h-8 text-primary" />
+            </div>
+
+            <div className="text-center">
+              <Badge variant="outline" className="mb-2">
+                You Receive
+              </Badge>
+              <div className="p-4 rounded-lg bg-gradient-card border border-primary/30">
+                <p className="text-sm text-muted-foreground mb-1">
+                  {escrow.receiveAsset}
+                </p>
+                <p className="text-2xl font-bold">
+                  {escrow.receiveAmount.toLocaleString()}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-center">
-            <ArrowRight className="h-6 w-6 text-primary" />
-          </div>
+          <Separator />
 
-          <div className="p-4 rounded-lg bg-background/50 border border-border/50 space-y-4">
-            <div className="flex items-center gap-2 text-primary">
-              <User className="h-4 w-4" />
-              <h3 className="text-sm font-semibold">Seller</h3>
-            </div>
-            <div className="pl-6 space-y-2">
-              <p className="text-sm font-mono text-foreground">
-                {escrow.seller}
+          {/* Details Grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Buyer</p>
+              <p className="font-mono text-sm">
+                {shortenAddress(escrow.buyer)}
               </p>
+              {isBuyer && (
+                <Badge variant="default" className="mt-1">
+                  You
+                </Badge>
+              )}
+            </div>
+
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Seller</p>
+              <p className="font-mono text-sm">
+                {shortenAddress(escrow.seller)}
+              </p>
+              {isSeller && (
+                <Badge variant="default" className="mt-1">
+                  You
+                </Badge>
+              )}
+            </div>
+
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Created</p>
+              <p className="font-medium">{formatDate(escrow.createdAt)}</p>
+            </div>
+
+            <div className="col-span-2">
+              <p className="text-sm text-muted-foreground mb-1">Expires In</p>
               <div className="flex items-center gap-2">
-                <Coins className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Receives:</span>
-                <span className="text-sm font-semibold text-primary">
-                  {escrow.receiveAmount} {escrow.receiveToken}
-                </span>
+                <Clock className="w-4 h-4 text-warning" />
+                <p className="font-medium">{calculateTimeRemaining()}</p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-background/50">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Created:</span>
-            <span className="text-sm text-foreground">{escrow.createdAt}</span>
-          </div>
+          {escrow.description && (
+            <>
+              <Separator />
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Description
+                </p>
+                <p className="text-foreground">{escrow.description}</p>
+              </div>
+            </>
+          )}
 
-          <div className="grid grid-cols-3 gap-3 pt-4">
+          <Separator />
+
+          {/* Actions */}
+          <div className="space-y-3">
+            {/* <p className="text-sm font-semibold">Available Actions</p> */}
+
+            {/* {escrow.status === "active" && (
+              <div className="grid grid-cols-2 gap-3">
+                {isSeller && !escrow.releaseRequested && (
+                  <Button
+                    onClick={() => handleAction("Request Release")}
+                    className="gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Request Release
+                  </Button>
+                )}
+
+                {isBuyer && escrow.releaseRequested && (
+                  <Button
+                    onClick={() => handleAction("Release Funds")}
+                    className="gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Release Funds
+                  </Button>
+                )}
+
+                {(isBuyer || isSeller) && !escrow.releaseRequested && (
+                  <Button
+                    onClick={() => handleAction("Request Refund")}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Request Refund
+                  </Button>
+                )}
+              </div>
+            )} */}
+
+            {/* {escrow.status === "pending" && isBuyer && ( */}
             <Button
-              variant="outline"
-              className="border-primary/30 hover:bg-primary/10"
-              onClick={() => handleAction("Fund")}
-              disabled={escrow.status !== "pending"}
+              onClick={() => handleAction("Cancel Escrow")}
+              variant="destructive"
+              className="w-full gap-2"
             >
-              Fund
+              <XCircle className="w-4 h-4" />
+              Cancel Escrow
             </Button>
-            <Button
-              variant="outline"
-              className="border-success/30 hover:bg-success/10 text-success"
-              onClick={() => handleAction("Claim")}
-              disabled={escrow.status !== "funded"}
-            >
-              Claim
-            </Button>
-            <Button
-              variant="outline"
-              className="border-destructive/30 hover:bg-destructive/10 text-destructive"
-              onClick={() => handleAction("Cancel")}
-              disabled={
-                escrow.status === "completed" || escrow.status === "cancelled"
-              }
-            >
-              Cancel
-            </Button>
+            {/* )} */}
           </div>
         </div>
       </DialogContent>
     </Dialog>
   );
-};
+}

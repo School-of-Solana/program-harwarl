@@ -4,7 +4,6 @@ import { Toaster } from "./components/ui/toaster";
 import { Toaster as Sonner } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 
-import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
 import {
@@ -19,6 +18,8 @@ import { useMemo } from "react";
 import { clusterApiUrl } from "@solana/web3.js";
 // Default styles that can be overridden by your app
 import "@solana/wallet-adapter-react-ui/styles.css";
+import Dashboard from "./pages/Dashboard";
+import { Layout } from "./components/layout";
 
 const queryClient = new QueryClient();
 
@@ -38,10 +39,12 @@ const App = () => {
           <WalletProvider autoConnect wallets={wallets}>
             <WalletModalProvider>
               <BrowserRouter>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Layout>
               </BrowserRouter>
             </WalletModalProvider>
           </WalletProvider>

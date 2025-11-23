@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import {
   Dialog,
   DialogContent,
@@ -6,213 +7,192 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "./ui/dialog";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Plus, ArrowRight } from "lucide-react";
+} from "../components/ui/dialog";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
+} from "../components/ui/select";
+import { Plus } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
+import { TOKEN_MAP } from "../lib/tokenMap";
+// import type { EscrowType } from "../types/escrow";
 
-export const CreateEscrowModal = () => {
-  const [open, setOpen] = useState(false);
+export function CreateEscrowModal() {
+  const { connected } = useWallet();
   const { toast } = useToast();
+  const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
-    buyer: "",
-    seller: "",
+    counterparty: "",
+    depositAsset: Object.keys(TOKEN_MAP)[0],
     depositAmount: "",
-    depositToken: "SOL",
+    receiveAsset: Object.keys(TOKEN_MAP)[1],
     receiveAmount: "",
-    receiveToken: "SOL",
+    expiry: new Date(),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Placeholder for escrow creation logic
+    if (!connected) {
+      toast({
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (
+      !formData.counterparty ||
+      !formData.depositAmount ||
+      !formData.receiveAmount
+    ) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
       title: "Escrow Created",
-      description: "Your escrow has been created successfully.",
+      description: "Your escrow transaction has been initiated",
     });
 
     setOpen(false);
     setFormData({
-      buyer: "",
-      seller: "",
+      counterparty: "",
+      depositAsset: Object.keys(TOKEN_MAP)[0],
       depositAmount: "",
-      depositToken: "SOL",
+      receiveAsset: Object.keys(TOKEN_MAP)[1],
       receiveAmount: "",
-      receiveToken: "SOL",
+      expiry: new Date(),
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 bg-gradient-primary hover:shadow-glow-primary transition-all duration-300">
-          <Plus className="h-4 w-4" />
+        <Button size="lg" className="gap-2 shadow-orange">
+          <Plus className="w-5 h-5" />
           Create Escrow
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] bg-card border-border/50 backdrop-blur-xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">
-            Create New Escrow
-          </DialogTitle>
+          <DialogTitle>Create New Escrow</DialogTitle>
           <DialogDescription>
-            Set up a new escrow transaction between buyer and seller.
+            Set up a secure escrow transaction on Solana
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="counterparty">Counterparty Address *</Label>
+            <Input
+              id="counterparty"
+              placeholder="Enter Solana wallet address"
+              value={formData.counterparty}
+              onChange={(e) =>
+                setFormData({ ...formData, counterparty: e.target.value })
+              }
+              className="font-mono"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="buyer" className="text-muted-foreground">
-                Buyer Address
-              </Label>
-              <Input
-                id="buyer"
-                placeholder="Enter buyer's wallet address"
-                value={formData.buyer}
-                onChange={(e) =>
-                  setFormData({ ...formData, buyer: e.target.value })
+              <Label htmlFor="depositAsset">You Deposit *</Label>
+              <Select
+                value={formData.depositAsset}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, depositAsset: value })
                 }
-                className="bg-background/50 border-border/50 focus:border-primary"
-                required
+              >
+                <SelectTrigger className="bg-background border-border/50 focus:border-primary text-muted-foreground">
+                  <SelectValue placeholder="Select token" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(TOKEN_MAP).map((token: any) => (
+                    <SelectItem key={token.symbol} value={token.symbol}>
+                      {token.symbol}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="depositAmount">Amount *</Label>
+              <Input
+                id="depositAmount"
+                type="number"
+                step="0.000001"
+                placeholder="0.00"
+                value={formData.depositAmount}
+                onChange={(e) =>
+                  setFormData({ ...formData, depositAmount: e.target.value })
+                }
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="seller" className="text-muted-foreground">
-                Seller Address
-              </Label>
-              <Input
-                id="seller"
-                placeholder="Enter seller's wallet address"
-                value={formData.seller}
-                onChange={(e) =>
-                  setFormData({ ...formData, seller: e.target.value })
+              <Label htmlFor="receiveAsset">You Receive *</Label>
+              <Select
+                value={formData.receiveAsset}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, receiveAsset: value })
                 }
-                className="bg-background/50 border-border/50 focus:border-primary"
-                required
+              >
+                <SelectTrigger className="bg-background border-border/50 focus:border-primary text-muted-foreground">
+                  <SelectValue placeholder="Select token" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(TOKEN_MAP).map((token: any) => (
+                    <SelectItem key={token.symbol} value={token.symbol}>
+                      {token.symbol}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="receiveAmount">Amount *</Label>
+              <Input
+                id="receiveAmount"
+                type="number"
+                step="0.000001"
+                placeholder="0.00"
+                value={formData.receiveAmount}
+                onChange={(e) =>
+                  setFormData({ ...formData, receiveAmount: e.target.value })
+                }
               />
             </div>
           </div>
 
-          <div className="p-4 rounded-lg bg-background/50 border border-border/50 space-y-4">
-            <h3 className="text-sm font-semibold text-primary">
-              Buyer Deposits
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="depositAmount"
-                  className="text-muted-foreground"
-                >
-                  Amount
-                </Label>
-                <Input
-                  id="depositAmount"
-                  type="number"
-                  step="0.000001"
-                  placeholder="0.00"
-                  value={formData.depositAmount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, depositAmount: e.target.value })
-                  }
-                  className="bg-background border-border/50 focus:border-primary"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="depositToken" className="text-muted-foreground">
-                  Token
-                </Label>
-                <Select
-                  value={formData.depositToken}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, depositToken: value })
-                  }
-                >
-                  <SelectTrigger className="bg-background border-border/50 focus:border-primary text-muted-foreground">
-                    <SelectValue placeholder="Select token" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SOL">SOL</SelectItem>
-                    <SelectItem value="BONK">BONK</SelectItem>
-                    <SelectItem value="TRUMP">TRUMP</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          <div className="flex gap-3 pt-4">
+            <Button type="submit" className="flex-1">
+              Create Escrow
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
           </div>
-
-          <div className="flex justify-center">
-            <ArrowRight className="h-6 w-6 text-accent" />
-          </div>
-
-          <div className="p-4 rounded-lg bg-background/50 border border-border/50 space-y-4">
-            <h3 className="text-sm font-semibold text-primary">
-              Seller Receives
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="receiveAmount"
-                  className="text-muted-foreground"
-                >
-                  Amount
-                </Label>
-                <Input
-                  id="receiveAmount"
-                  type="number"
-                  step="0.000001"
-                  placeholder="0.00"
-                  value={formData.receiveAmount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, receiveAmount: e.target.value })
-                  }
-                  className="bg-background border-border/50 focus:border-primary "
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="receiveToken" className="text-muted-foreground">
-                  Token
-                </Label>
-                <Select
-                  value={formData.receiveToken}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, receiveToken: value })
-                  }
-                >
-                  <SelectTrigger className="bg-background border-border/50 focus:border-primary text-muted-foreground">
-                    <SelectValue placeholder="Select token" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SOL">SOL</SelectItem>
-                    <SelectItem value="BONK">BONK</SelectItem>
-                    <SelectItem value="TRUMP">TRUMP</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full bg-gradient-primary hover:shadow-glow-primary transition-all duration-300"
-          >
-            Create Escrow
-          </Button>
         </form>
       </DialogContent>
     </Dialog>
   );
-};
+}
