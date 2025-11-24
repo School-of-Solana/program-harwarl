@@ -33,7 +33,7 @@ export function CreateEscrowModal() {
     depositAmount: "",
     receiveAsset: Object.keys(TOKEN_MAP)[1],
     receiveAmount: "",
-    expiry: new Date(),
+    expiry: "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -61,6 +61,15 @@ export function CreateEscrowModal() {
       return;
     }
 
+    if (new Date(formData.expiry) <= new Date()) {
+      toast({
+        title: "Validation Error",
+        description: "Invalid Expiry Date",
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
       title: "Escrow Created",
       description: "Your escrow transaction has been initiated",
@@ -73,7 +82,7 @@ export function CreateEscrowModal() {
       depositAmount: "",
       receiveAsset: Object.keys(TOKEN_MAP)[1],
       receiveAmount: "",
-      expiry: new Date(),
+      expiry: "",
     });
   };
 
@@ -175,6 +184,24 @@ export function CreateEscrowModal() {
                 onChange={(e) =>
                   setFormData({ ...formData, receiveAmount: e.target.value })
                 }
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-gray-500">
+                Expiry Date
+              </label>
+
+              <Input
+                id="expiry"
+                type="datetime-local"
+                value={formData.expiry}
+                onChange={(e) =>
+                  setFormData({ ...formData, expiry: e.target.value })
+                }
+                className="font-mono"
               />
             </div>
           </div>
