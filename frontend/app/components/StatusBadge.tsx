@@ -23,6 +23,7 @@ const statusConfig: Record<
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
+  console.log({ status });
   const config = statusConfig[status];
 
   return (

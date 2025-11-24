@@ -24,11 +24,13 @@ import { TOKEN_MAP } from "../lib/tokenMap";
 import { initializeEscrow } from "../lib/escrow";
 import { PublicKey } from "@solana/web3.js";
 import { v4 as uuidv4 } from "uuid";
+import { useCreateEscrow } from "../lib/query";
 
 export function CreateEscrowModal() {
   const wallet = useWallet();
-  const { connection } = useConnection();
   const { toast } = useToast();
+  const { connection } = useConnection();
+  const createEscrow = useCreateEscrow();
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     counterparty: "",
@@ -97,16 +99,26 @@ export function CreateEscrowModal() {
       );
 
       // if tx and escrowPda, Save to the database
-      
-      toast({
-        title: "Escrow Created",
-        description: (
-          <>
-            <div>Transaction Signature: {tx}</div>
-            <div>Escrow PDA: {escrowPda.toBase58()}</div>
-          </>
-        ),
-      });
+      createEscrow.mutate(
+        {
+          buyer: String(wallet.publicKey)!,
+          seller: counterparty,
+          escrowPda: String(escrowPda),
+        },
+        {
+          onSuccess: () => {
+            toast({
+              title: "Escrow Created",
+              description: (
+                <>
+                  <div>Transaction Signature: {tx}</div>
+                  <div>Escrow PDA: {escrowPda.toBase58()}</div>
+                </>
+              ),
+            });
+          },
+        }
+      );
     } catch (error: any) {
       toast({
         title: "Error Creating Escrow",

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useState, useEffect } from "react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import { Input } from "./components/ui/input";
@@ -25,57 +25,79 @@ import { StatusBadge } from "./components/StatusBadge";
 import { CreateEscrowModal } from "./components/CreateEscrowModal";
 import { EscrowDetailModal } from "./components/EscrowDetailModal";
 import { Search, Filter, AlertCircle } from "lucide-react";
-
-// Mock data
-const mockEscrows = [
-  {
-    id: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-    buyer: "8h1fAn67wKhmatHS52HQBeYhM5JHEJap43U6YC4AT95x",
-    seller: "9yKLpg3FX98d87TXJSDpbD5jBkheTqA83TzPosdBcV",
-    depositAsset: "SOL",
-    depositAmount: 50,
-    receiveAsset: "USDC",
-    receiveAmount: 5000,
-    status: "pending",
-    description: "Purchase USDC tokens",
-    createdAt: "2025-11-20T10:30:00Z",
-    expiry: "2025-11-27T10:30:00Z",
-  },
-  {
-    id: "4pMTvg7JX23d87TXJSDpbD5jBkheTqA83KlNosgDsP",
-    buyer: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-    seller: "8h1fAn67wKhmatHS52HQBeYhM5JHEJap43U6YC4AT95x",
-    depositAsset: "BONK",
-    depositAmount: 1000000,
-    receiveAsset: "SOL",
-    receiveAmount: 10,
-    status: "pending",
-    description: "Sell BONK for SOL",
-    createdAt: "2025-11-19T14:20:00Z",
-    expiry: "2025-11-26T14:20:00Z",
-  },
-];
+import { useGetEscrows } from "./lib/query";
+import { getEscrowViaPda } from "./lib/escrow";
+import { PublicKey } from "@solana/web3.js";
+import { cleanOnChainEscrow } from "./lib/utils";
 
 export default function Home() {
-  const { publicKey, connected } = useWallet();
+  const wallet = useWallet();
+  const { connection } = useConnection();
+  const {
+    data: dbEscrows = [],
+    isLoading,
+    isError,
+  } = useGetEscrows(wallet?.publicKey?.toString()!);
+  const [onChainEscrows, setOnChainEscrows] = useState<any[]>([]);
+  const [loadingOnChain, setLoadingOnChain] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedEscrow, setSelectedEscrow] = useState<any | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
 
+  // Set use Effect
+  // Fetch on-chain escrow data
+  useEffect(() => {
+    if (!wallet.connected || !wallet?.publicKey || dbEscrows.length === 0)
+      return;
+
+    const fetchOnChain = async () => {
+      setLoadingOnChain(true);
+
+      const results = await Promise.all(
+        dbEscrows.map(async (escrow) => {
+          try {
+            const onChainData: any = await getEscrowViaPda(
+              connection,
+              wallet!,
+              new PublicKey(escrow.escrowPda)
+            );
+
+            const cleanedOnChainData = cleanOnChainEscrow(onChainData);
+            console.log({ cleanedOnChainData });
+            return { ...escrow, ...cleanedOnChainData };
+          } catch (err) {
+            console.error(
+              "Error fetching on-chain escrow",
+              escrow.escrowPda,
+              err
+            );
+            return { ...escrow };
+          }
+        })
+      );
+
+      setOnChainEscrows(results);
+      setLoadingOnChain(false);
+    };
+
+    fetchOnChain();
+  }, [dbEscrows, wallet.connected, wallet.publicKey]);
+
+  const { connected, publicKey } = useWallet();
   // Filter escrows for connected wallet
   const userEscrows =
-    connected && publicKey
-      ? mockEscrows.filter(
+    wallet.connected && publicKey
+      ? onChainEscrows?.filter(
           (e) =>
             e.buyer === publicKey.toString() ||
             e.seller === publicKey.toString()
-        )
+        ) ?? []
       : [];
 
   const filteredEscrows = userEscrows.filter((escrow) => {
     const matchesSearch =
-      escrow.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      escrow.escrowPda.toLowerCase().includes(searchTerm.toLowerCase()) ||
       escrow.buyer.toLowerCase().includes(searchTerm.toLowerCase()) ||
       escrow.seller.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -94,7 +116,7 @@ export default function Home() {
   };
 
   const formatAmount = (amount: number, asset: string) => {
-    return `${amount.toLocaleString()} ${asset}`;
+    return `${amount.toLocaleString()} ${"SOL"}`; // TODO: adjust this
   };
 
   const shortenAddress = (address: string) => {
@@ -210,12 +232,12 @@ export default function Home() {
                 <TableBody>
                   {filteredEscrows.map((escrow) => (
                     <TableRow
-                      key={escrow.id}
+                      key={escrow._id}
                       className="cursor-pointer hover:bg-secondary/50"
                       onClick={() => handleRowClick(escrow)}
                     >
                       <TableCell className="font-mono font-medium">
-                        {shortenAddress(escrow.id)}
+                        {shortenAddress(escrow.escrowPda)}
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
@@ -235,7 +257,7 @@ export default function Home() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={escrow.status as EscrowStatus} />
+                        <StatusBadge status={escrow.state as EscrowStatus} />
                       </TableCell>
                       <TableCell>{formatDate(escrow.createdAt)}</TableCell>
                       <TableCell>{formatDate(escrow.expiry)}</TableCell>

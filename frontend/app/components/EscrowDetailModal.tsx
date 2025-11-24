@@ -36,19 +36,8 @@ export function EscrowDetailModal({
   const isBuyer = connectedAddress === escrow.buyer;
   const isSeller = connectedAddress === escrow.seller;
 
-  useEffect(() => {
-    if (!escrow.id) return;
-
-    const run = async () => {
-      // get the pda data
-      // TODO:
-    };
-
-    run();
-  }, [escrow]);
-
   const copyEscrowId = () => {
-    navigator.clipboard.writeText(escrow.id);
+    navigator.clipboard.writeText(escrow.escrowPda);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast({
@@ -119,7 +108,7 @@ export function EscrowDetailModal({
                 </a>
               </Button>
             </div>
-            <StatusBadge status={escrow.status as EscrowStatus} />
+            <StatusBadge status={escrow.state as EscrowStatus} />
           </div>
         </DialogHeader>
 
@@ -221,7 +210,7 @@ export function EscrowDetailModal({
 
             {
               <div className="grid grid-cols-2 gap-3">
-                {isSeller && escrow.status === "pending" && (
+                {isSeller && escrow.state === "pending" && (
                   <Button
                     onClick={() => handleAction("accept")}
                     className="gap-2"
@@ -230,7 +219,7 @@ export function EscrowDetailModal({
                     Accept
                   </Button>
                 )}
-                {isBuyer && escrow.status === "active" && (
+                {isBuyer && escrow.state === "active" && (
                   <Button
                     onClick={() => handleAction("fund")}
                     className="gap-2"
@@ -239,7 +228,7 @@ export function EscrowDetailModal({
                     Fund Escrow
                   </Button>
                 )}
-                {isSeller && escrow.status === "funded" && (
+                {isSeller && escrow.state === "funded" && (
                   <Button
                     onClick={() => handleAction("sendAsset")}
                     className="gap-2"
@@ -248,7 +237,7 @@ export function EscrowDetailModal({
                     Send Asset
                   </Button>
                 )}
-                {isBuyer && escrow.status === "assetSent" && (
+                {isBuyer && escrow.state === "assetSent" && (
                   <Button
                     onClick={() => handleAction("confirm")}
                     className="gap-2"
@@ -257,7 +246,7 @@ export function EscrowDetailModal({
                     Confirm And Release
                   </Button>
                 )}
-                {(isSeller || isBuyer) && escrow.status != "released" && (
+                {(isSeller || isBuyer) && escrow.state != "released" && (
                   <Button onClick={() => handleAction("")} className="gap-2">
                     <CheckCircle2 className="w-4 h-4" />
                     Request Refund

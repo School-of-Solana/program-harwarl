@@ -53,6 +53,16 @@ async function getAccountATA(account: any, mint: any) {
   );
 }
 
+export const getEscrowViaPda = async (
+  connection: Connection,
+  wallet: WalletContextState,
+  escrowPda: PublicKey
+) => {
+  const program = await getProgram(connection, wallet);
+
+  return program.account.escrow.fetch(escrowPda);
+};
+
 // Initialize Escrow
 export const initializeEscrow = async (
   connection: Connection,
@@ -68,6 +78,8 @@ export const initializeEscrow = async (
   if (!wallet.connected) throw new Error("Wallet not connected");
 
   const program = await getProgram(connection, wallet);
+
+  escrowId = escrowId.replace(/-/g, "");
 
   let escrowPda: PublicKey;
   try {
