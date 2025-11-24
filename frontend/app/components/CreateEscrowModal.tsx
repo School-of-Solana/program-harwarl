@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
   Dialog,
   DialogContent,
@@ -7,24 +7,27 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../components/ui/dialog";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
+} from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
+} from "./ui/select";
 import { Plus } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import { TOKEN_MAP } from "../lib/tokenMap";
-// import type { EscrowType } from "../types/escrow";
+import { initializeEscrow } from "../lib/escrow";
+import { PublicKey } from "@solana/web3.js";
+import { v4 as uuidv4 } from "uuid";
 
 export function CreateEscrowModal() {
-  const { connected } = useWallet();
+  const wallet = useWallet();
+  const { connection } = useConnection();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -36,10 +39,10 @@ export function CreateEscrowModal() {
     expiry: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!connected) {
+    if (!wallet.connected) {
       toast({
         title: "Wallet Not Connected",
         description: "Please connect your wallet first",
@@ -70,10 +73,46 @@ export function CreateEscrowModal() {
       return;
     }
 
-    toast({
-      title: "Escrow Created",
-      description: "Your escrow transaction has been initiated",
-    });
+    const {
+      counterparty,
+      depositAmount,
+      depositAsset,
+      receiveAmount,
+      receiveAsset,
+      expiry,
+    } = formData;
+
+    // Create the Escrow.
+    try {
+      const { tx, escrowPda } = await initializeEscrow(
+        connection,
+        wallet!,
+        uuidv4(),
+        new PublicKey(counterparty),
+        Number(depositAmount),
+        Number(receiveAmount),
+        new PublicKey(TOKEN_MAP[depositAsset as keyof typeof TOKEN_MAP].mint),
+        new PublicKey(TOKEN_MAP[receiveAsset as keyof typeof TOKEN_MAP].mint),
+        new Date(expiry).getTime()
+      );
+
+      // if tx and escrowPda, Save to the database
+      
+      toast({
+        title: "Escrow Created",
+        description: (
+          <>
+            <div>Transaction Signature: {tx}</div>
+            <div>Escrow PDA: {escrowPda.toBase58()}</div>
+          </>
+        ),
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error Creating Escrow",
+        description: error?.message || "Unknown error occurred",
+      });
+    }
 
     setOpen(false);
     setFormData({
@@ -190,9 +229,7 @@ export function CreateEscrowModal() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-gray-500">
-                Expiry Date
-              </label>
+              <Label htmlFor="expiry">Expiry Date *</Label>
 
               <Input
                 id="expiry"

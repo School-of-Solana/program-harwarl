@@ -1,3 +1,5 @@
+"use client";
+
 import { Wallet } from "lucide-react";
 import { Button } from "./ui/button";
 import { useWallet } from "@solana/wallet-adapter-react";

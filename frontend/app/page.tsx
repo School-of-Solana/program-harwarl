@@ -1,8 +1,10 @@
+"use client";
+
 import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
-import { Input } from "../components/ui/input";
+import { Button } from "./components/ui/button";
+import { Card } from "./components/ui/card";
+import { Input } from "./components/ui/input";
 import {
   Table,
   TableBody,
@@ -10,25 +12,25 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../components/ui/table";
+} from "./components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
-import type { EscrowStatus } from "../types/escrow";
-import { StatusBadge } from "../components/StatusBadge";
-import { CreateEscrowModal } from "../components/CreateEscrowModal";
-import { EscrowDetailModal } from "../components/EscrowDetailModal";
+} from "./components/ui/select";
+import type { EscrowStatus } from "./types/escrow";
+import { StatusBadge } from "./components/StatusBadge";
+import { CreateEscrowModal } from "./components/CreateEscrowModal";
+import { EscrowDetailModal } from "./components/EscrowDetailModal";
 import { Search, Filter, AlertCircle } from "lucide-react";
 
 // Mock data
 const mockEscrows = [
   {
     id: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-    buyer: "E3qhYpyqgMSUPMBv97Wgq3jjiziuTKiy86xFz8CJALyE",
+    buyer: "8h1fAn67wKhmatHS52HQBeYhM5JHEJap43U6YC4AT95x",
     seller: "9yKLpg3FX98d87TXJSDpbD5jBkheTqA83TzPosdBcV",
     depositAsset: "SOL",
     depositAmount: 50,
@@ -42,19 +44,19 @@ const mockEscrows = [
   {
     id: "4pMTvg7JX23d87TXJSDpbD5jBkheTqA83KlNosgDsP",
     buyer: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-    seller: "E3qhYpyqgMSUPMBv97Wgq3jjiziuTKiy86xFz8CJALyE",
+    seller: "8h1fAn67wKhmatHS52HQBeYhM5JHEJap43U6YC4AT95x",
     depositAsset: "BONK",
     depositAmount: 1000000,
     receiveAsset: "SOL",
     receiveAmount: 10,
-    status: "closed",
+    status: "pending",
     description: "Sell BONK for SOL",
     createdAt: "2025-11-19T14:20:00Z",
     expiry: "2025-11-26T14:20:00Z",
   },
 ];
 
-export default function Dashboard() {
+export default function Home() {
   const { publicKey, connected } = useWallet();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");

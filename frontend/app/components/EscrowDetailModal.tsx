@@ -1,20 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "../components/ui/dialog";
-import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { Separator } from "./ui/seperator";
-import { StatusBadge } from "../components/StatusBadge";
+import { StatusBadge } from "./StatusBadge";
 import {
   ArrowRight,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
   Clock,
   Copy,
   Check,
@@ -37,12 +30,22 @@ export function EscrowDetailModal({
   const { publicKey } = useWallet();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
-
   if (!escrow) return null;
 
   const connectedAddress = publicKey?.toString();
   const isBuyer = connectedAddress === escrow.buyer;
   const isSeller = connectedAddress === escrow.seller;
+
+  useEffect(() => {
+    if (!escrow.id) return;
+
+    const run = async () => {
+      // get the pda data
+      // TODO:
+    };
+
+    run();
+  }, [escrow]);
 
   const copyEscrowId = () => {
     navigator.clipboard.writeText(escrow.id);
@@ -67,7 +70,6 @@ export function EscrowDetailModal({
   const calculateTimeRemaining = () => {
     const now = new Date();
     const expiry = new Date(escrow.expiry);
-    console.log({ expiry });
     const diff = expiry.getTime() - now.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -215,53 +217,54 @@ export function EscrowDetailModal({
 
           {/* Actions */}
           <div className="space-y-3">
-            {/* <p className="text-sm font-semibold">Available Actions</p> */}
+            <p className="text-sm font-semibold">Available Actions</p>
 
-            {/* {escrow.status === "active" && (
+            {
               <div className="grid grid-cols-2 gap-3">
-                {isSeller && !escrow.releaseRequested && (
+                {isSeller && escrow.status === "pending" && (
                   <Button
-                    onClick={() => handleAction("Request Release")}
+                    onClick={() => handleAction("accept")}
                     className="gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Request Release
+                    Accept
                   </Button>
                 )}
-
-                {isBuyer && escrow.releaseRequested && (
+                {isBuyer && escrow.status === "active" && (
                   <Button
-                    onClick={() => handleAction("Release Funds")}
+                    onClick={() => handleAction("fund")}
                     className="gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Release Funds
+                    Fund Escrow
                   </Button>
                 )}
-
-                {(isBuyer || isSeller) && !escrow.releaseRequested && (
+                {isSeller && escrow.status === "funded" && (
                   <Button
-                    onClick={() => handleAction("Request Refund")}
-                    variant="outline"
+                    onClick={() => handleAction("sendAsset")}
                     className="gap-2"
                   >
-                    <XCircle className="w-4 h-4" />
+                    <CheckCircle2 className="w-4 h-4" />
+                    Send Asset
+                  </Button>
+                )}
+                {isBuyer && escrow.status === "assetSent" && (
+                  <Button
+                    onClick={() => handleAction("confirm")}
+                    className="gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Confirm And Release
+                  </Button>
+                )}
+                {(isSeller || isBuyer) && escrow.status != "released" && (
+                  <Button onClick={() => handleAction("")} className="gap-2">
+                    <CheckCircle2 className="w-4 h-4" />
                     Request Refund
                   </Button>
                 )}
               </div>
-            )} */}
-
-            {/* {escrow.status === "pending" && isBuyer && ( */}
-            <Button
-              onClick={() => handleAction("Cancel Escrow")}
-              variant="destructive"
-              className="w-full gap-2"
-            >
-              <XCircle className="w-4 h-4" />
-              Cancel Escrow
-            </Button>
-            {/* )} */}
+            }
           </div>
         </div>
       </DialogContent>

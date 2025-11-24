@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import type { Escrow as EscrowProgram } from "../../../anchor_project/target/types/escrow";
-import { PublicKey, Connection } from "@solana/web3.js";
+import { PublicKey, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import idl from "../../../anchor_project/target/idl/escrow.json";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@solana/spl-token";
 
 const SYSTEM_PROGRAM = anchor.web3.SystemProgram.programId;
+const ESCROW_SEED = "ESCROW_SEED";
 
 export const getProgram = async (
   connection: Connection,
@@ -23,13 +24,7 @@ export const getProgram = async (
     preflightCommitment: "processed",
   });
 
-  // This is how you get the program instance correctly
-  const program = await anchor.Program.at<EscrowProgram>(
-    new PublicKey(idl.address),
-    provider
-  );
-
-  return program;
+  return new anchor.Program<EscrowProgram>(idl as anchor.Idl, provider);
 };
 
 function getEscrowAddress(
@@ -40,7 +35,7 @@ function getEscrowAddress(
 ) {
   return PublicKey.findProgramAddressSync(
     [
-      anchor.utils.bytes.utf8.encode("ESCROW_SEED"),
+      anchor.utils.bytes.utf8.encode(ESCROW_SEED),
       anchor.utils.bytes.utf8.encode(escrow_id),
       buyer.toBuffer(),
       seller.toBuffer(),
@@ -68,38 +63,44 @@ export const initializeEscrow = async (
   receiveAmount: number,
   depositMint: PublicKey,
   receiveMint: PublicKey,
-  description?: string,
   expiry?: number
 ) => {
   if (!wallet.connected) throw new Error("Wallet not connected");
 
   const program = await getProgram(connection, wallet);
 
-  // derive PDA for the escrow
-  const [escrowPda, _] = getEscrowAddress(
-    escrowId,
-    wallet.publicKey!,
-    seller,
-    program.programId
-  );
-
-  const tx = await program.methods
-    .initEscrow(
+  let escrowPda: PublicKey;
+  try {
+    [escrowPda] = getEscrowAddress(
       escrowId,
-      depositMint,
-      new anchor.BN(depositAmount),
-      receiveMint,
-      new anchor.BN(receiveAmount),
-      new anchor.BN(expiry!)
-    )
-    .accounts({
-      buyer: wallet.publicKey!,
+      wallet.publicKey!,
       seller,
-      escrow: escrowPda,
-      systemProgram: SYSTEM_PROGRAM,
-    })
-    .signers([])
-    .rpc({ commitment: "confirmed" });
+      program.programId
+    );
+  } catch (error) {
+    throw new Error(`Failed to derive PDA: ${error}`);
+  }
+
+  let tx: string;
+  try {
+    tx = await program.methods
+      .initEscrow(
+        escrowId,
+        depositMint,
+        new anchor.BN(depositAmount * LAMPORTS_PER_SOL),
+        receiveMint,
+        new anchor.BN(receiveAmount),
+        new anchor.BN(expiry!)
+      )
+      .accounts({
+        buyer: wallet.publicKey!,
+        seller,
+      })
+      .signers([])
+      .rpc({ commitment: "confirmed" });
+  } catch (error) {
+    throw new Error(`Failed to initialize escrow: ${error}`);
+  }
 
   return { tx, escrowPda };
 };
@@ -107,12 +108,20 @@ export const initializeEscrow = async (
 export const acceptEscrow = async (
   connection: Connection,
   wallet: WalletContextState,
-  escrowPda: PublicKey
+  escrowId: string,
+  buyer: PublicKey,
+  seller: PublicKey
 ) => {
   if (!wallet.connected) throw new Error("Wallet not connected");
 
   const program = await getProgram(connection, wallet);
 
+  const [escrowPda, _] = getEscrowAddress(
+    escrowId,
+    buyer,
+    seller,
+    program.programId
+  );
   const tx = await program.methods
     .acceptEscrow()
     .accounts({

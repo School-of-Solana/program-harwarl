@@ -1,16 +1,18 @@
+import { PublicKey } from "@solana/web3.js";
+
 // tokenMap.ts
 export const TOKEN_MAP = {
   SOL: {
     symbol: "SOL",
-    mint: "So11111111111111111111111111111111111111112",
+    mint: PublicKey.default,
   },
   USDT: {
     symbol: "USDT",
-    mint: "So11111111111111111111111111111111111111112",
+    mint: "Es9vMFrzaC1H6zzggBqqqEgakx4eCnmLmJtZNe5yW3sn",
   },
   USDC: {
     symbol: "USDC",
-    mint: "So11111111111111111111111111111111111111112",
+    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   },
   BONK: {
     symbol: "BONK",

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { WalletButton } from "./WalletButton";
-import { ThemeToggle } from "../components/ThemeToggle";
+import { ThemeToggle } from "./ThemeToggle";
 import { Coins } from "lucide-react";
 
 interface LayoutProps {
