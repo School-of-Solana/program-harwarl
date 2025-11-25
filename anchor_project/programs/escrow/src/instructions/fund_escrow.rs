@@ -137,7 +137,7 @@ pub struct FundEscrow<'info> {
     /// CHECK: PDA holding SOL deposits
     #[account(
     mut,
-    seeds = [b"sol_vault", escrow.key().as_ref()],
+    seeds = [SOL_VAULT_SEED.as_bytes(), escrow.key().as_ref()],
     bump
 )]
     pub sol_vault: UncheckedAccount<'info>,

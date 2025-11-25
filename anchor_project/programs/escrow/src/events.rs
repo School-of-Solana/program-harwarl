@@ -31,21 +31,20 @@ pub struct EscrowAssetSent {
 }
 
 #[event]
-pub struct EscrowCancel {
-    pub escrow: Pubkey,
-}
-
-#[event]
 pub struct EscrowReleased {
     pub escrow: Pubkey,
 }
 
 #[event]
-pub struct AutoReleaseToSeller {
+pub struct EscrowBuyerRefund {
     pub escrow: Pubkey,
+    pub buyer: Pubkey,
+    pub amount: u64,
 }
 
 #[event]
-pub struct AutoRefundToBuyer {
+pub struct EscrowSellerRefund {
     pub escrow: Pubkey,
+    pub seller: Pubkey,
+    pub amount: u64,
 }

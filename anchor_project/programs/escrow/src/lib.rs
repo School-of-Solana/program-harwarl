@@ -6,7 +6,7 @@ mod state;
 use anchor_lang::prelude::*;
 use instructions::*;
 
-declare_id!("AgFvBjqrFRFmsy8FpQKyNwK3tuyLx8FtBWMys1uMFAbz");
+declare_id!("6ZCSEugKRMSnJMLjw6kNBNbrejMQApnCTyYY52QNjnGq");
 
 #[program]
 pub mod escrow {
@@ -48,7 +48,11 @@ pub mod escrow {
         _confirm_asset(ctx)
     }
 
-    pub fn cancel_escrow(ctx: Context<CancelEscrow>) -> Result<()> {
-        _cancel_escrow(ctx)
+    pub fn refund_buyer(ctx: Context<RefundBuyer>) -> Result<()> {
+        _refund_buyer(ctx)
+    }
+
+    pub fn refund_seller(ctx: Context<RefundSeller>) -> Result<()> {
+        _refund_seller(ctx)
     }
 }

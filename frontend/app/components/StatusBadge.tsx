@@ -19,11 +19,12 @@ const statusConfig: Record<
   funded: { label: "Funded", variant: "default" },
   assetSent: { label: "AssetSent", variant: "default" },
   released: { label: "Released", variant: "default" },
+  buyerRefunded: { label: "Buyer Refunded", variant: "default" },
+  sellerRefunded: { label: "Seller Refunded", variant: "default" },
   closed: { label: "Closed", variant: "destructive" },
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
-  console.log({ status });
   const config = statusConfig[status];
 
   return (

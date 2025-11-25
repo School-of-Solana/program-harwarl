@@ -1,12 +1,13 @@
-import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { getMintDecimals } from "./escrow";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function cleanOnChainEscrow(raw: any) {
+export async function cleanOnChainEscrow(raw: any, connection: Connection) {
   return {
     escrowId: raw.escrowId,
 
@@ -19,11 +20,13 @@ export function cleanOnChainEscrow(raw: any) {
     depositAmount:
       raw.depositMint.toBase58() === PublicKey.default.toBase58()
         ? Number(raw.depositAmount) / LAMPORTS_PER_SOL
-        : Number(raw.depositAmount),
+        : Number(raw.depositAmount) /
+          (await getMintDecimals(connection, raw.depositMint)),
     receiveAmount:
       raw.receiveMint.toBase58() === PublicKey.default.toBase58()
         ? Number(raw.receiveAmount) / LAMPORTS_PER_SOL
-        : Number(raw.receiveAmount),
+        : Number(raw.receiveAmount) /
+          (await getMintDecimals(connection, raw.receiveMint)),
 
     createdAt: Number(raw.createdAt.toString()),
     expiry: Number(raw.expiry.toString()),

@@ -29,6 +29,7 @@ import { useGetEscrows } from "./lib/query";
 import { getEscrowViaPda } from "./lib/escrow";
 import { PublicKey } from "@solana/web3.js";
 import { cleanOnChainEscrow } from "./lib/utils";
+import { MINT_TO_TOKEN } from "./lib/tokenMap";
 
 export default function Home() {
   const wallet = useWallet();
@@ -63,8 +64,11 @@ export default function Home() {
               new PublicKey(escrow.escrowPda)
             );
 
-            const cleanedOnChainData = cleanOnChainEscrow(onChainData);
-            console.log({ cleanedOnChainData });
+            const cleanedOnChainData = await cleanOnChainEscrow(
+              onChainData,
+              connection
+            );
+
             return { ...escrow, ...cleanedOnChainData };
           } catch (err) {
             console.error(
@@ -102,7 +106,7 @@ export default function Home() {
       escrow.seller.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
-      statusFilter === "all" || escrow.status === statusFilter;
+      statusFilter === "all" || escrow.state === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -116,7 +120,7 @@ export default function Home() {
   };
 
   const formatAmount = (amount: number, asset: string) => {
-    return `${amount.toLocaleString()} ${"SOL"}`; // TODO: adjust this
+    return `${amount.toLocaleString()} ${MINT_TO_TOKEN[asset]}`; // TODO: adjust this
   };
 
   const shortenAddress = (address: string) => {
@@ -163,7 +167,7 @@ export default function Home() {
           <Card className="p-6 glass-card">
             <p className="text-sm text-muted-foreground mb-2">Active Escrows</p>
             <p className="text-3xl font-bold">
-              {userEscrows.filter((e) => e.status === "active").length}
+              {userEscrows.filter((e) => e.state === "active").length}
             </p>
           </Card>
           <Card className="p-6 glass-card">
@@ -173,7 +177,7 @@ export default function Home() {
           <Card className="p-6 glass-card">
             <p className="text-sm text-muted-foreground mb-2">Completed</p>
             <p className="text-3xl font-bold">
-              {userEscrows.filter((e) => e.status === "released").length}
+              {userEscrows.filter((e) => e.state === "released").length}
             </p>
           </Card>
         </div>
@@ -199,12 +203,11 @@ export default function Home() {
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="requested_release">
-                  Release Requested
-                </SelectItem>
-                <SelectItem value="disputed">Disputed</SelectItem>
+                <SelectItem value="funded">Funded</SelectItem>
+                <SelectItem value="assetSent">AssetSent</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
                 <SelectItem value="released">Released</SelectItem>
-                <SelectItem value="refunded">Refunded</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -244,14 +247,14 @@ export default function Home() {
                           <div className="font-medium">
                             {formatAmount(
                               escrow.depositAmount,
-                              escrow.depositAsset
+                              escrow.depositMint
                             )}
                           </div>
                           <div className="text-muted-foreground">
                             →{" "}
                             {formatAmount(
                               escrow.receiveAmount,
-                              escrow.receiveAsset
+                              escrow.receiveMint
                             )}
                           </div>
                         </div>

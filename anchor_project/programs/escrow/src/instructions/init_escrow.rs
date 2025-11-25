@@ -75,9 +75,10 @@ pub fn _init_escrow(
 
     // other data
     escrow.state = EscrowState::Pending;
-    escrow.created_at = Clock::get()?.unix_timestamp;
+    escrow.created_at = Clock::get()?.unix_timestamp * 1000;
     escrow.expiry = expiry;
-    escrow.requested_release = false;
+    escrow.buyer_refund = false;
+    escrow.seller_refund = false;
     escrow.escrow_id = escrow_id;
 
     emit!(EscrowCreated {

@@ -4,22 +4,14 @@ import { PublicKey } from "@solana/web3.js";
 export const TOKEN_MAP = {
   SOL: {
     symbol: "SOL",
-    mint: PublicKey.default,
+    mint: PublicKey.default.toBase58(),
   },
-  USDT: {
-    symbol: "USDT",
-    mint: "Es9vMFrzaC1H6zzggBqqqEgakx4eCnmLmJtZNe5yW3sn",
-  },
-  USDC: {
-    symbol: "USDC",
-    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-  },
-  BONK: {
-    symbol: "BONK",
-    mint: "DezXAZ8z7PnrnEj9VfZY9QKp5rdSYpX2VgAmuutx7wa4",
-  },
-  TRUMP: {
-    symbol: "TRUMP",
-    mint: "6C3gBe8f6c3y7hqGac3fPdcHn7zFhT4UygnC48nNXYnR",
+  TOKX: {
+    symbol: "TOKX",
+    mint: "DnXUvjazdr3T6UVjGmDE7kLbzZKjaYs8hY2AFZeC7Nf3",
   },
 };
+
+export const MINT_TO_TOKEN: Record<string, string> = Object.fromEntries(
+  Object.entries(TOKEN_MAP).map(([key, value]) => [value.mint, key])
+);

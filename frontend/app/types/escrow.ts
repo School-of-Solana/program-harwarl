@@ -4,6 +4,8 @@ export type EscrowStatus =
   | "funded"
   | "assetSent"
   | "released"
+  | "buyerRefunded"
+  | "sellerRefunded"
   | "closed";
 
 export interface EscrowPayload {
@@ -21,9 +23,9 @@ export interface Escrow {
   id: string; // TODO: REMOVE
   buyer: string;
   seller: string;
-  depositAsset: string;
+  depositMint: string;
   depositAmount: number;
-  receiveAsset: string;
+  receiveMint: string;
   receiveAmount: number;
   state: EscrowStatus;
   description?: string; // Remove

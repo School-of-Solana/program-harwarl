@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -15,6 +15,16 @@ import {
 } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import type { Escrow, EscrowStatus } from "../types/escrow";
+import { MINT_TO_TOKEN } from "../lib/tokenMap";
+import {
+  acceptEscrow,
+  confirmAsset,
+  fundEscrow,
+  getEscrowBalances,
+  refundBuyer,
+  refundSeller,
+  sendAsset,
+} from "../lib/escrow";
 
 interface EscrowDetailModalProps {
   escrow: Escrow | null;
@@ -27,12 +37,33 @@ export function EscrowDetailModal({
   open,
   onOpenChange,
 }: EscrowDetailModalProps) {
-  const { publicKey } = useWallet();
+  const { connection } = useConnection();
+  const wallet = useWallet();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+
+  const connectedAddress = wallet.publicKey?.toString();
+  const [depositBalance, setDepositBalance] = useState<number | null>(null);
+  const [receiveBalance, setReceiveBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!escrow) return;
+    const fetchBalances = async () => {
+      const { depositBalance, receiveBalance } = await getEscrowBalances(
+        connection,
+        wallet,
+        escrow.escrowPda,
+        escrow.depositMint,
+        escrow.receiveMint
+      );
+      setDepositBalance(depositBalance);
+      setReceiveBalance(receiveBalance);
+    };
+    fetchBalances();
+  }, [escrow]);
+
   if (!escrow) return null;
 
-  const connectedAddress = publicKey?.toString();
   const isBuyer = connectedAddress === escrow.buyer;
   const isSeller = connectedAddress === escrow.seller;
 
@@ -65,12 +96,59 @@ export function EscrowDetailModal({
     return `${days}d ${hours}h`;
   };
 
-  const handleAction = (action: string) => {
-    toast({
-      title: `${action} Initiated`,
-      description: "Processing your transaction...",
-    });
-    onOpenChange(false);
+  const handleAction = async (action: string) => {
+    let fn: (() => Promise<{ tx: string; escrowPda: string }>) | null = null;
+
+    switch (action) {
+      case "accept":
+        fn = () => acceptEscrow(connection, wallet, escrow.escrowPda);
+        break;
+
+      case "fund":
+        fn = () => fundEscrow(connection, wallet, escrow.escrowPda);
+        break;
+
+      case "sendAsset":
+        fn = () => sendAsset(connection, wallet, escrow.escrowPda);
+        break;
+
+      case "confirm":
+        fn = () => confirmAsset(connection, wallet, escrow.escrowPda);
+        break;
+
+      case "refund_buyer":
+        fn = () => refundBuyer(connection, wallet, escrow.escrowPda);
+        break;
+
+      case "refund_seller":
+        fn = () => refundSeller(connection, wallet, escrow.escrowPda);
+        break;
+        
+      default:
+        console.warn("Unknown action:", action);
+        return;
+    }
+
+    if (!fn) return;
+
+    try {
+      const { tx, escrowPda } = await fn();
+
+      toast({
+        title: `${
+          action.charAt(0).toUpperCase() + action.slice(1).toLowerCase()
+        } Initiated`,
+        description: `Tx Completed - ${tx}`,
+      });
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        title: "Transaction Failed",
+        description: error?.message ?? "Unexpected error during transaction",
+        variant: "destructive",
+      });
+    }
   };
 
   const shortenAddress = (address: string) => {
@@ -100,7 +178,7 @@ export function EscrowDetailModal({
               </Button>
               <Button variant="ghost" size="sm" asChild className="h-7 w-7 p-0">
                 <a
-                  href={`https://explorer.solana.com/tx/${escrow.id}?cluster=devnet`}
+                  href={`https://explorer.solana.com/tx/${escrow.escrowPda}?cluster=devnet`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -114,17 +192,17 @@ export function EscrowDetailModal({
 
         <div className="space-y-6 mt-4">
           {/* Assets Exchange */}
-          <div className="grid grid-cols-3 gap-4 items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4 items-center">
             <div className="text-center">
               <Badge variant="outline" className="mb-2">
                 You Deposit
               </Badge>
               <div className="p-4 rounded-lg border border-primary/30 bg-gradient-card">
-                <p className="text-sm text-primary-foreground/80 mb-1">
-                  {escrow.depositAsset}
-                </p>
                 <p className="text-2xl font-bold text-primary-foreground">
                   {escrow.depositAmount}
+                </p>
+                <p className="text-sm text-primary-foreground/80 mb-1">
+                  {MINT_TO_TOKEN[escrow.depositMint]}
                 </p>
               </div>
             </div>
@@ -138,20 +216,18 @@ export function EscrowDetailModal({
                 You Receive
               </Badge>
               <div className="p-4 rounded-lg bg-gradient-card border border-primary/30">
-                <p className="text-sm text-muted-foreground mb-1">
-                  {escrow.receiveAsset}
-                </p>
                 <p className="text-2xl font-bold">
                   {escrow.receiveAmount.toLocaleString()}
+                </p>
+                <p className="text-sm text-muted-foreground mb-1">
+                  {MINT_TO_TOKEN[escrow.receiveMint]}
                 </p>
               </div>
             </div>
           </div>
-
           <Separator />
-
           {/* Details Grid */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Buyer</p>
               <p className="font-mono text-sm">
@@ -190,6 +266,40 @@ export function EscrowDetailModal({
             </div>
           </div>
 
+          <Separator />
+          {/* ESCROW CONTRACT BALANCE */}
+          <div>
+            <p className="text-sm text-muted-foreground mb-2">
+              Escrow Balances
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+              <div className="rounded-lg border border-primary/30 p-3 bg-muted/20">
+                <p className="text-xs text-muted-foreground mb-1">
+                  Deposit Token Balance
+                </p>
+                <p className="text-lg font-semibold">
+                  {depositBalance !== null ? depositBalance : "Loading..."}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {MINT_TO_TOKEN[escrow.depositMint]}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-primary/30 p-3 bg-muted/20">
+                <p className="text-xs text-muted-foreground mb-1">
+                  Receive Token Balance
+                </p>
+                <p className="text-lg font-semibold">
+                  {receiveBalance !== null ? receiveBalance : "Loading..."}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {MINT_TO_TOKEN[escrow.receiveMint]}
+                </p>
+              </div>
+            </div>
+          </div>
+
           {escrow.description && (
             <>
               <Separator />
@@ -201,9 +311,7 @@ export function EscrowDetailModal({
               </div>
             </>
           )}
-
           <Separator />
-
           {/* Actions */}
           <div className="space-y-3">
             <p className="text-sm font-semibold">Available Actions</p>
@@ -246,14 +354,31 @@ export function EscrowDetailModal({
                     Confirm And Release
                   </Button>
                 )}
-                {(isSeller || isBuyer) && escrow.state != "released" && (
-                  <Button onClick={() => handleAction("")} className="gap-2">
+                {isSeller && ["assetSent"].includes(escrow.state) && (
+                  <Button
+                    onClick={() => handleAction("refund_seller")}
+                    className="gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Request Refund
+                  </Button>
+                )}
+                {isBuyer && ["funded", "assetSent"].includes(escrow.state) && (
+                  <Button
+                    onClick={() => handleAction("refund_buyer")}
+                    className="gap-2"
+                  >
                     <CheckCircle2 className="w-4 h-4" />
                     Request Refund
                   </Button>
                 )}
               </div>
             }
+            {escrow.state === "released" && (
+              <p className="text-sm font-semibold">
+                No Available Actions, Token Already released
+              </p>
+            )}
           </div>
         </div>
       </DialogContent>

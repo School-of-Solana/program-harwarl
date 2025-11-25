@@ -14,12 +14,6 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
     let system_program = &mut ctx.accounts.system_program;
     let token_program = &mut ctx.accounts.token_program;
 
-    let deposit_mint = ctx.accounts.deposit_mint.as_ref();
-    let receive_mint = ctx.accounts.receive_mint.as_ref();
-    let escrow_deposit_ata = ctx.accounts.escrow_deposit_ata.as_ref();
-    let escrow_receive_ata = ctx.accounts.escrow_receive_ata.as_ref();
-    let buyer_receive_ata = ctx.accounts.buyer_receive_ata.as_ref();
-    let seller_receive_ata = ctx.accounts.seller_receive_ata.as_ref();
     let vault_bump = ctx.bumps.sol_vault;
 
     require!(
@@ -48,9 +42,11 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
 
     // Transfer seller asset to buyer
     if escrow.receive_mint != Pubkey::default() {
-        let mint = receive_mint.unwrap();
-        let from_ata = escrow_receive_ata.unwrap();
-        let to_ata = buyer_receive_ata.unwrap();
+        let mint = ctx.accounts.receive_mint.as_ref().unwrap();
+        let from_ata = ctx.accounts.escrow_receive_ata.as_ref().unwrap();
+        let to_ata = ctx.accounts.buyer_receive_ata.as_ref().unwrap();
+
+        require!(mint.key() == escrow.receive_mint, EscrowError::InvalidReceiveMint);
 
         // Token tranfer
         let cpi_accounts = TransferChecked {
@@ -85,9 +81,11 @@ pub fn _confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
     // Transfer Buyer Asset to the Seller
     if escrow.deposit_mint != Pubkey::default() {
         // Token Transfer to seller
-        let mint = deposit_mint.unwrap();
-        let from_ata = escrow_deposit_ata.unwrap();
-        let to_ata = seller_receive_ata.unwrap();
+        let mint = ctx.accounts.deposit_mint.as_ref().unwrap();
+        let from_ata = ctx.accounts.escrow_deposit_ata.as_ref().unwrap();
+        let to_ata = ctx.accounts.seller_receive_ata.as_ref().unwrap();
+        
+        require!(mint.key() == escrow.deposit_mint, EscrowError::InvalidDepositMint);
         // Token tranfer
         let cpi_accounts = TransferChecked {
             from: from_ata.to_account_info(),
@@ -178,7 +176,7 @@ pub struct ConfirmAsset<'info> {
 
     #[account(
         init_if_needed,
-        payer = seller,
+        payer = buyer,
         associated_token::mint = deposit_mint,
         associated_token::authority = seller,
         associated_token::token_program = token_program,

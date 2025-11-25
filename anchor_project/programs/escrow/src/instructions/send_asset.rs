@@ -40,11 +40,6 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
             EscrowError::InsufficientBalance
         );
 
-        msg!(
-            "Lamports in sol vault: {}",
-            sol_vault.to_account_info().lamports()
-        );
-
         // check for overflow
         sol_vault
             .to_account_info()
@@ -70,7 +65,14 @@ pub fn _send_asset(ctx: Context<SendAsset>) -> Result<()> {
         let to_ata = escrow_ata.unwrap();
 
         require!(
-            from_ata.amount > escrow.deposit_amount,
+            mint.key() == escrow.receive_mint,
+            EscrowError::InvalidReceiveMint
+        );
+
+        msg!("From ATA Balance: {}", from_ata.amount);
+
+        require!(
+            from_ata.amount > escrow.receive_amount,
             EscrowError::InsufficientBalance
         );
 
@@ -126,7 +128,8 @@ pub struct SendAsset<'info> {
     pub sol_vault: UncheckedAccount<'info>,
 
     #[account(
-        mut,
+        init_if_needed,
+        payer = seller,
         associated_token::mint = mint,
         associated_token::authority = seller,
         associated_token::token_program = token_program

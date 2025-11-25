@@ -23,6 +23,9 @@ pub enum EscrowError {
     #[msg("Escrow is not Active. Seller must accept before funding.")]
     EscrowNotActive,
 
+    #[msg("Only the buyer / seller can perform this action")]
+    UnauthorizedSigner,
+
     #[msg("Only the buyer can perform this action")]
     UnauthorizedBuyer,
 
@@ -34,6 +37,9 @@ pub enum EscrowError {
 
     #[msg("Escrow Not Funded")]
     EscrowNotFunded,
+
+    #[msg("No deposit to refund")]
+    NoDepositToRefund,
 
     #[msg("Invalid State")]
     InvalidStateTransition,
@@ -52,4 +58,10 @@ pub enum EscrowError {
 
     #[msg("Cannot initialize, Escrow Id not present")]
     IdTooShort,
+
+    #[msg("Missing Deposit Accounts")]
+    MissingDepositAccounts,
+
+    #[msg("Already Refunded")]
+    AlreadyRefunded
 }
