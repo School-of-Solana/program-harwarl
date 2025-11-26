@@ -33,7 +33,7 @@ export function CreateEscrowModal() {
   const createEscrow = useCreateEscrow();
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
-    counterparty: "",
+    counterparty: "8h1fAn67wKhmatHS52HQBeYhM5JHEJap43U6YC4AT95x",
     depositAsset: Object.keys(TOKEN_MAP)[0],
     depositAmount: "",
     receiveAsset: Object.keys(TOKEN_MAP)[1],
@@ -116,7 +116,7 @@ export function CreateEscrowModal() {
 
     setOpen(false);
     setFormData({
-      counterparty: "",
+      counterparty: "8h1fAn67wKhmatHS52HQBeYhM5JHEJap43U6YC4AT95x",
       depositAsset: Object.keys(TOKEN_MAP)[0],
       depositAmount: "",
       receiveAsset: Object.keys(TOKEN_MAP)[1],
@@ -238,6 +238,11 @@ export function CreateEscrowModal() {
               Cancel
             </Button>
           </div>
+          {/* info */}
+          <p className="text-xs text-primary/50 mt-4">
+            Swap any of the listed dev tokens with the already inputted
+            counterparty address.
+          </p>
         </form>
       </DialogContent>
     </Dialog>

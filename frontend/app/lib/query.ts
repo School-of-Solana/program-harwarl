@@ -13,7 +13,7 @@ export const useGetEscrows = (walletAddress: string) => {
       const { data } = await axiosInstance.get(`/escrow/${walletAddress}`);
       return data as EscrowData[];
     },
-    refetchInterval: 20_000,
+    refetchInterval: 4_000,
     refetchIntervalInBackground: true,
     staleTime: 0,
   });
@@ -28,11 +28,8 @@ export const useCreateEscrow = () => {
           createEscrowPayload
         );
 
-        console.log("Use Create Escrow Data", useCreateEscrow);
-
         return data.data;
       } catch (error: unknown) {
-        console.log({ error });
         if (error instanceof AxiosError) {
           throw new Error(error.response?.data?.message || "Unknown error");
         } else {
