@@ -38,7 +38,6 @@ export function CreateEscrowModal() {
     depositAmount: "",
     receiveAsset: Object.keys(TOKEN_MAP)[1],
     receiveAmount: "",
-    expiry: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,22 +65,12 @@ export function CreateEscrowModal() {
       return;
     }
 
-    if (new Date(formData.expiry) <= new Date()) {
-      toast({
-        title: "Validation Error",
-        description: "Invalid Expiry Date",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const {
       counterparty,
       depositAmount,
       depositAsset,
       receiveAmount,
       receiveAsset,
-      expiry,
     } = formData;
 
     // Create the Escrow.
@@ -94,15 +83,14 @@ export function CreateEscrowModal() {
         Number(depositAmount),
         Number(receiveAmount),
         new PublicKey(TOKEN_MAP[depositAsset as keyof typeof TOKEN_MAP].mint),
-        new PublicKey(TOKEN_MAP[receiveAsset as keyof typeof TOKEN_MAP].mint),
-        new Date(expiry).getTime()
+        new PublicKey(TOKEN_MAP[receiveAsset as keyof typeof TOKEN_MAP].mint)
       );
 
       // if tx and escrowPda, Save to the database
       createEscrow.mutate(
         {
-          buyer: String(wallet.publicKey)!,
-          seller: counterparty,
+          owner: String(wallet.publicKey)!,
+          receiver: counterparty,
           escrowPda: String(escrowPda),
         },
         {
@@ -133,7 +121,6 @@ export function CreateEscrowModal() {
       depositAmount: "",
       receiveAsset: Object.keys(TOKEN_MAP)[1],
       receiveAmount: "",
-      expiry: "",
     });
   };
 
@@ -235,22 +222,6 @@ export function CreateEscrowModal() {
                 onChange={(e) =>
                   setFormData({ ...formData, receiveAmount: e.target.value })
                 }
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="expiry">Expiry Date *</Label>
-
-              <Input
-                id="expiry"
-                type="datetime-local"
-                value={formData.expiry}
-                onChange={(e) =>
-                  setFormData({ ...formData, expiry: e.target.value })
-                }
-                className="font-mono"
               />
             </div>
           </div>

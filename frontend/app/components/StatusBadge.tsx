@@ -14,13 +14,8 @@ const statusConfig: Record<
     variant: "default" | "secondary" | "destructive" | "outline";
   }
 > = {
-  pending: { label: "Pending", variant: "secondary" },
   active: { label: "Active", variant: "default" },
-  funded: { label: "Funded", variant: "default" },
-  assetSent: { label: "AssetSent", variant: "default" },
-  released: { label: "Released", variant: "default" },
-  buyerRefunded: { label: "Buyer Refunded", variant: "default" },
-  sellerRefunded: { label: "Seller Refunded", variant: "default" },
+  completed: { label: "Completed", variant: "default" },
   closed: { label: "Closed", variant: "destructive" },
 };
 

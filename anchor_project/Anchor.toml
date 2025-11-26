@@ -5,17 +5,17 @@ package_manager = "pnpm"
 resolution = true
 skip-lint = false
 
-[programs.devnet]
-escrow = "6ZCSEugKRMSnJMLjw6kNBNbrejMQApnCTyYY52QNjnGq"
-
 [programs.localnet]
-escrow = "6ZCSEugKRMSnJMLjw6kNBNbrejMQApnCTyYY52QNjnGq"
+escrow = "nj9z1iSrdSBhFt3jmxmgHzhBLVqE6b2bh7MwLjiDWuq"
+
+[programs.devnet]
+escrow = "nj9z1iSrdSBhFt3jmxmgHzhBLVqE6b2bh7MwLjiDWuq"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

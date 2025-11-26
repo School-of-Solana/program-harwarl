@@ -5,6 +5,9 @@ pub enum EscrowError {
     #[msg("Overflow")]
     OverFlow,
 
+    #[msg("Invalid State")]
+    InvalidState,
+
     #[msg("Invalid Deposit Token mint")]
     InvalidDepositMint,
 
@@ -17,51 +20,24 @@ pub enum EscrowError {
     #[msg("Token to same buyer and seller is not allowed")]
     SameBuyerSellerNotAllowed,
 
-    #[msg("Invalid Expiry date")]
-    InvalidExpiryDate,
-
-    #[msg("Escrow is not Active. Seller must accept before funding.")]
+    #[msg("Escrow is not Active")]
     EscrowNotActive,
 
-    #[msg("Only the buyer / seller can perform this action")]
+    #[msg("Unauthorized Signer")]
     UnauthorizedSigner,
 
-    #[msg("Only the buyer can perform this action")]
-    UnauthorizedBuyer,
-
-    #[msg("Only the seller can perform this action")]
-    UnauthorizedSeller,
-
-    #[msg("Escrow Expired")]
-    EscrowExpired,
-
-    #[msg("Escrow Not Funded")]
-    EscrowNotFunded,
-
-    #[msg("No deposit to refund")]
-    NoDepositToRefund,
-
-    #[msg("Invalid State")]
-    InvalidStateTransition,
-
-    #[msg("Insufficient Balance")]
-    InsufficientBalance,
-
-    #[msg("Deposit amount cannot be less than zero")]
-    InvalidDepositAmount,
-
-    #[msg("Receive amount cannot be less than zero")]
-    InvalidReceiveAmount,
-
-    #[msg("Cannot initialize, EscrowId too long")]
+    #[msg("EscrowId too long")]
     IdTooLong,
 
-    #[msg("Cannot initialize, Escrow Id not present")]
+    #[msg("EscrowId too short")]
     IdTooShort,
 
-    #[msg("Missing Deposit Accounts")]
-    MissingDepositAccounts,
+    #[msg("Low Deposit Amount")]
+    DepositAmountLow,
 
-    #[msg("Already Refunded")]
-    AlreadyRefunded
+    #[msg("Low Receive Amount")]
+    ReceiveAmountLow,
+
+    #[msg("Insufficient balance")]
+    InsufficientBalance,
 }

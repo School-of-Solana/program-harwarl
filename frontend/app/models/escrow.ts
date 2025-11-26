@@ -2,11 +2,11 @@ import mongoose from "mongoose";
 
 const EscrowSchema = new mongoose.Schema(
   {
-    buyer: {
+    owner: {
       type: String,
       required: true,
     },
-    seller: {
+    receiver: {
       type: String,
       required: true,
     },
@@ -18,7 +18,7 @@ const EscrowSchema = new mongoose.Schema(
       type: String,
     },
   },
-  { timestamps: false }
+  { timestamps: true }
 );
 
 export default mongoose.models.Escrow || mongoose.model("Escrow", EscrowSchema);

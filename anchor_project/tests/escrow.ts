@@ -1,10 +1,9 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Escrow } from "../target/types/escrow";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { assert, expect } from "chai";
+import { publicKey } from "@coral-xyz/anchor/dist/cjs/utils";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
-  Account,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   createMint,
   getAccount,
@@ -13,9 +12,9 @@ import {
   mintTo,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
+import { assert, expect } from "chai";
 
 const ESCROW_SEED = "ESCROW_SEED";
-const ZERO_PUBKEY = anchor.web3.PublicKey.default;
 
 describe("escrow", () => {
   // Configure the client to use the local cluster.
@@ -23,2425 +22,977 @@ describe("escrow", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace.escrow as Program<Escrow>;
-
-  let buyer: Keypair;
-  let seller: Keypair;
-  let mint: PublicKey;
-  let escrowPda: PublicKey;
-  let escrowBump: number;
-  seller = anchor.web3.Keypair.generate();
-  buyer = anchor.web3.Keypair.generate();
-  const depositAmount = new anchor.BN(2 * LAMPORTS_PER_SOL);
-  const long_escrow_id = "A".repeat(32);
-  const expiry = new anchor.BN(Date.now() / 1000 + 3600);
-
-  const TOKEN_A_PUBKEY = new anchor.web3.PublicKey(Array(32).fill(1));
-
-  // describe("Initialize Escrow", () => {
-  //   it("Should successfully initialize a escrow with a valid id", async () => {
-  //     let escrowId = "escrowId";
-  //     await airdrop(provider.connection, buyer.publicKey);
-
-  //     [escrowPda, escrowBump] = getEscrowAddress(
-  //       escrowId,
-  //       buyer.publicKey,
-  //       seller.publicKey,
-  //       program.programId
-  //     );
-
-  //     await program.methods
-  //       .initEscrow(
-  //         escrowId,
-  //         ZERO_PUBKEY,
-  //         depositAmount,
-  //         TOKEN_A_PUBKEY,
-  //         depositAmount,
-  //         expiry
-  //       )
-  //       .accounts({
-  //         buyer: buyer.publicKey,
-  //         seller: seller.publicKey,
-  //         // escrow: escrowPda,
-  //         systemProgram: anchor.web3.SystemProgram.programId,
-  //       })
-  //       .signers([buyer])
-  //       .rpc({ commitment: "confirmed" });
-
-  //     await checkEscrow({
-  //       program,
-  //       escrowPda: escrowPda,
-  //       escrow_author: buyer.publicKey,
-  //       expected: {
-  //         bump: escrowBump,
-  //         buyer: buyer.publicKey,
-  //         seller: seller.publicKey,
-  //         escrow_id: escrowId,
-  //         depositMint: ZERO_PUBKEY,
-  //         depositAmount,
-  //         receiveMint: TOKEN_A_PUBKEY,
-  //         receiveAmount: depositAmount,
-  //         expiry,
-  //       },
-  //     });
-  //   });
-
-  //   it("Should successfully initialize escrow with exactly 32 bytes Id (boundary test)", async () => {
-  //     [escrowPda, escrowBump] = getEscrowAddress(
-  //       long_escrow_id,
-  //       buyer.publicKey,
-  //       seller.publicKey,
-  //       program.programId
-  //     );
-
-  //     await program.methods
-  //       .initEscrow(
-  //         long_escrow_id,
-  //         ZERO_PUBKEY,
-  //         depositAmount,
-  //         TOKEN_A_PUBKEY,
-  //         depositAmount,
-  //         expiry
-  //       )
-  //       .accounts({
-  //         buyer: buyer.publicKey,
-  //         seller: seller.publicKey,
-  //         escrow: escrowPda,
-  //         systemProgram: anchor.web3.SystemProgram.programId,
-  //       })
-  //       .signers([buyer])
-  //       .rpc({ commitment: "confirmed" });
-
-  //     await checkEscrow({
-  //       program,
-  //       escrowPda: escrowPda,
-  //       escrow_author: buyer.publicKey,
-  //       expected: {
-  //         bump: escrowBump,
-  //         buyer: buyer.publicKey,
-  //         seller: seller.publicKey,
-  //         escrow_id: long_escrow_id,
-  //         depositMint: ZERO_PUBKEY,
-  //         depositAmount,
-  //         receiveMint: TOKEN_A_PUBKEY,
-  //         receiveAmount: depositAmount,
-  //         expiry,
-  //       },
-  //     });
-  //   });
-
-  //   it("Should fail to initialize escrow when escrow Id exceeds 32 bytes", async () => {
-  //     let should_fail = "A".repeat(45);
-  //     const expiry = new anchor.BN(Date.now() / 1000 + 3600);
-
-  //     try {
-  //       [escrowPda, escrowBump] = getEscrowAddress(
-  //         should_fail,
-  //         buyer.publicKey,
-  //         seller.publicKey,
-  //         program.programId
-  //       );
-
-  //       await program.methods
-  //         .initEscrow(
-  //           should_fail,
-  //           ZERO_PUBKEY,
-  //           depositAmount,
-  //           TOKEN_A_PUBKEY,
-  //           depositAmount,
-  //           expiry
-  //         )
-  //         .accounts({
-  //           buyer: buyer.publicKey,
-  //           seller: seller.publicKey,
-  //           escrow: escrowPda,
-  //           systemProgram: anchor.web3.SystemProgram.programId,
-  //         })
-  //         .signers([buyer])
-  //         .rpc({ commitment: "confirmed" });
-  //     } catch (error) {
-  //       assert.strictEqual(
-  //         error.message,
-  //         "Max seed length exceeded",
-  //         "Expected 'Max seed length exceeded' error for topic longer than 32 bytes"
-  //       );
-  //       should_fail = "Failed";
-  //     }
-  //   });
-
-  //   it("Should fail to initialize escrow when the expiry is less than the created time", async () => {
-  //     const expiry = new anchor.BN(Date.now() / 1000 - 1000);
-
-  //     const should_fail = "will_fail";
-  //     try {
-  //       [escrowPda, escrowBump] = getEscrowAddress(
-  //         should_fail,
-  //         buyer.publicKey,
-  //         seller.publicKey,
-  //         program.programId
-  //       );
-  //       await program.methods
-  //         .initEscrow(
-  //           should_fail,
-  //           ZERO_PUBKEY,
-  //           depositAmount,
-  //           TOKEN_A_PUBKEY,
-  //           depositAmount,
-  //           expiry
-  //         )
-  //         .accounts({
-  //           buyer: buyer.publicKey,
-  //           seller: seller.publicKey,
-  //           escrow: escrowPda,
-  //           systemProgram: anchor.web3.SystemProgram.programId,
-  //         })
-  //         .signers([buyer])
-  //         .rpc({ commitment: "confirmed" });
-  //     } catch (error) {
-  //       assert.strictEqual(error.error.errorMessage, "Invalid Expiry date");
-  //     }
-  //   });
-
-  //   it("Should fail to initialize escrow when the buyer and seller addresses are the same", async () => {
-  //     const same_address_fail = "sameoowneraddress";
-  //     try {
-  //       [escrowPda, escrowBump] = getEscrowAddress(
-  //         same_address_fail,
-  //         buyer.publicKey,
-  //         buyer.publicKey,
-  //         program.programId
-  //       );
-  //       await program.methods
-  //         .initEscrow(
-  //           same_address_fail,
-  //           ZERO_PUBKEY,
-  //           depositAmount,
-  //           TOKEN_A_PUBKEY,
-  //           depositAmount,
-  //           expiry
-  //         )
-  //         .accounts({
-  //           buyer: buyer.publicKey,
-  //           seller: buyer.publicKey,
-  //           escrow: escrowPda,
-  //           systemProgram: anchor.web3.SystemProgram.programId,
-  //         })
-  //         .signers([buyer])
-  //         .rpc({ commitment: "confirmed" });
-  //     } catch (error) {
-  //       assert.strictEqual(
-  //         error.error.errorMessage,
-  //         "Token to same buyer and seller is not allowed"
-  //       );
-  //     }
-  //   });
-
-  //   it("Should fail to initialize escrow when the deposit amount is zero", async () => {
-  //     const invalid_deposit_amount = "invalid_deposit_amount";
-  //     try {
-  //       [escrowPda, escrowBump] = getEscrowAddress(
-  //         invalid_deposit_amount,
-  //         buyer.publicKey,
-  //         seller.publicKey,
-  //         program.programId
-  //       );
-  //       await program.methods
-  //         .initEscrow(
-  //           invalid_deposit_amount,
-  //           ZERO_PUBKEY,
-  //           new anchor.BN(0),
-  //           TOKEN_A_PUBKEY,
-  //           depositAmount,
-  //           expiry
-  //         )
-  //         .accounts({
-  //           buyer: buyer.publicKey,
-  //           seller: seller.publicKey,
-  //           escrow: escrowPda,
-  //           systemProgram: anchor.web3.SystemProgram.programId,
-  //         })
-  //         .signers([buyer])
-  //         .rpc({ commitment: "confirmed" });
-  //     } catch (error) {
-  //       assert.strictEqual(
-  //         error.error.errorMessage,
-  //         "Deposit amount cannot be less than zero"
-  //       );
-  //     }
-  //   });
-
-  //   it("Should fail to initialize escrow when the receive amount is zero", async () => {
-  //     const invalid_receive_amount = "invalid_receive_amount";
-  //     try {
-  //       [escrowPda, escrowBump] = getEscrowAddress(
-  //         invalid_receive_amount,
-  //         buyer.publicKey,
-  //         seller.publicKey,
-  //         program.programId
-  //       );
-  //       await program.methods
-  //         .initEscrow(
-  //           invalid_receive_amount,
-  //           ZERO_PUBKEY,
-  //           depositAmount,
-  //           TOKEN_A_PUBKEY,
-  //           new anchor.BN(0),
-  //           expiry
-  //         )
-  //         .accounts({
-  //           buyer: buyer.publicKey,
-  //           seller: seller.publicKey,
-  //           escrow: escrowPda,
-  //           systemProgram: anchor.web3.SystemProgram.programId,
-  //         })
-  //         .signers([buyer])
-  //         .rpc({ commitment: "confirmed" });
-  //     } catch (error) {
-  //       assert.strictEqual(
-  //         error.error.errorMessage,
-  //         "Receive amount cannot be less than zero"
-  //       );
-  //     }
-  //   });
-
-  //   it("Should fail to initialize escrow when the tokenAddresses are the same", async () => {
-  //     const invalid_receive_amount = "invalid_receive_amount";
-  //     try {
-  //       [escrowPda, escrowBump] = getEscrowAddress(
-  //         invalid_receive_amount,
-  //         buyer.publicKey,
-  //         seller.publicKey,
-  //         program.programId
-  //       );
-  //       await program.methods
-  //         .initEscrow(
-  //           invalid_receive_amount,
-  //           TOKEN_A_PUBKEY,
-  //           depositAmount,
-  //           TOKEN_A_PUBKEY,
-  //           depositAmount,
-  //           expiry
-  //         )
-  //         .accounts({
-  //           buyer: buyer.publicKey,
-  //           seller: seller.publicKey,
-  //           escrow: escrowPda,
-  //           systemProgram: anchor.web3.SystemProgram.programId,
-  //         })
-  //         .signers([buyer])
-  //         .rpc({ commitment: "confirmed" });
-  //     } catch (error) {
-  //       assert.strictEqual(
-  //         error.error.errorMessage,
-  //         "Token to the same token is not allowed"
-  //       );
-  //     }
-  //   });
-  // });
-
-  // describe("Accept Escrow", () => {
-  //   it("Should allow seller to successfully accept escrow", async () => {
-  //     await airdrop(provider.connection, seller.publicKey);
-  //     await airdrop(provider.connection, buyer.publicKey);
-
-  //     const [escrowPda, escrowBump] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId: "accept_01",
-  //       mint1: ZERO_PUBKEY,
-  //       mint2: TOKEN_A_PUBKEY,
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await program.methods
-  //       .acceptEscrow()
-  //       .accounts({
-  //         seller: seller.publicKey,
-  //         escrow: escrowPda,
-  //       })
-  //       .signers([seller])
-  //       .rpc();
-
-  //     checkAcceptEscrow({
-  //       program,
-  //       escrowPda,
-  //       seller,
-  //     });
-  //   });
-
-  //   it("Should fail to accept if state is not valid", async () => {
-  //     await airdrop(provider.connection, seller.publicKey);
-  //     await airdrop(provider.connection, buyer.publicKey);
-  //     try {
-  //       const [escrowPda, escrowBump] = await InitializeEscrow({
-  //         program,
-  //         buyer,
-  //         seller,
-  //         escrowId: "fail_01",
-  //         mint1: ZERO_PUBKEY,
-  //         mint2: TOKEN_A_PUBKEY,
-  //         dep_amount: depositAmount,
-  //         rec_amount: depositAmount,
-  //         expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //       });
-
-  //       await acceptEscrow({ program, seller, escrowPda });
-
-  //       await acceptEscrow({ program, seller, escrowPda });
-
-  //       checkAcceptEscrow({
-  //         program,
-  //         escrowPda,
-  //         seller,
-  //       });
-  //     } catch (error) {
-  //       assert.strictEqual(error.error.errorMessage, "Invalid State");
-  //     }
-  //   });
-
-  //   it("Should fail if caller is not the seller", async () => {
-  //     const tina = anchor.web3.Keypair.generate();
-  //     await airdrop(provider.connection, tina.publicKey);
-  //     await airdrop(provider.connection, buyer.publicKey);
-  //     try {
-  //       const [escrowPda, escrowBump] = await InitializeEscrow({
-  //         program,
-  //         buyer,
-  //         seller,
-  //         escrowId: "fail_02",
-  //         mint1: ZERO_PUBKEY,
-  //         mint2: TOKEN_A_PUBKEY,
-  //         dep_amount: depositAmount,
-  //         rec_amount: depositAmount,
-  //         expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //       });
-
-  //       await acceptEscrow({ program, seller: tina, escrowPda });
-  //     } catch (error) {
-  //       assert.strictEqual(
-  //         error.error.errorMessage,
-  //         "A seeds constraint was violated"
-  //       );
-  //     }
-  //   });
-
-  //   it("Should fail if escrow as expired", async () => {
-  //     await airdrop(provider.connection, seller.publicKey);
-  //     await airdrop(provider.connection, buyer.publicKey);
-
-  //     // expiry 5 seconds in the past
-
-  //     try {
-  //       const [escrowPda, escrowBump] = await InitializeEscrow({
-  //         program,
-  //         buyer,
-  //         seller,
-  //         escrowId: "fail_03",
-  //         mint1: ZERO_PUBKEY,
-  //         mint2: TOKEN_A_PUBKEY,
-  //         dep_amount: depositAmount,
-  //         rec_amount: depositAmount,
-  //         expiry: new anchor.BN(Date.now() / 1000 + 3),
-  //       });
-
-  //       setTimeout(async () => {}, 2000);
-
-  //       await acceptEscrow({ program, seller, escrowPda });
-  //     } catch (error) {
-  //       console.log({ error });
-  //       assert.strictEqual(error.error.errorMessage, "Escrow Expired");
-  //     }
-  //   });
-  // });
-
-  // describe("Fund Escrow", () => {
-  //   let escrowPda_01: any,
-  //     escrowPda_02: any,
-  //     escrowBump_01: any,
-  //     escrowBump_02: any,
-  //     mint: PublicKey,
-  //     buyerATA: Account;
-
-  //   beforeEach(async () => {
-  //     // fund the buyer account with sol
-  //     await airdrop(provider.connection, buyer.publicKey, 3 * 1000000000);
-
-  //     // Create mint and mint tokens
-  //     const minted = await mintTokens(provider.connection, buyer);
-  //     mint = minted.mint;
-  //     buyerATA = minted.ata;
-  //   });
-
-  //   it("should successfully allow the buyer to fund With SOl", async () => {
-  //     [escrowPda_01, escrowBump_01] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId: "pass_01",
-  //       mint1: ZERO_PUBKEY, //SOL
-  //       mint2: mint, // TEST TOKEN
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_01 });
-
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_01,
-  //       mint
-  //     );
-
-  //     await fundEscrow({
-  //       program,
-  //       buyer,
-  //       mint,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     await checkFundEscrow({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       dep_type: "SOL",
-  //     });
-  //   });
-
-  //   it("Should successfully allow the buyer to fund with Mint", async () => {
-  //     [escrowPda_02, escrowBump_02] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId: "pass_02",
-  //       mint1: mint, // TESTTOKEN
-  //       mint2: ZERO_PUBKEY, // SOL
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_02 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_02,
-  //       mint
-  //     );
-
-  //     await fundEscrow({
-  //       program,
-  //       buyer,
-  //       mint,
-
-  //       escrowPda: escrowPda_02,
-  //     });
-
-  //     await checkFundEscrow({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_02,
-  //       escrowAta: escrowAta,
-  //       dep_type: "MINT",
-  //     });
-  //   });
-
-  //   it("Should fail the buyer does not have sufficient balance to fund with SOL", async () => {
-  //     const newdepositAmount = new anchor.BN(5 * LAMPORTS_PER_SOL);
-  //     [escrowPda_02, escrowBump_02] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId: "fail_033",
-  //       mint1: ZERO_PUBKEY,
-  //       mint2: mint,
-  //       dep_amount: newdepositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_02 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_02,
-  //       mint
-  //     );
-
-  //     try {
-  //       await fundEscrow({
-  //         program,
-  //         buyer,
-  //         mint,
-
-  //         escrowPda: escrowPda_02,
-  //       });
-
-  //       await checkFundEscrow({
-  //         program,
-  //         provider,
-  //         escrowPda: escrowPda_02,
-  //         escrowAta: escrowAta,
-  //         dep_type: "MINT",
-  //       });
-  //     } catch (error) {
-  //       assert.strictEqual(error.error.errorMessage, "Insufficient Balance");
-  //     }
-  //   });
-
-  //   it("Should fail the buyer does not have sufficient balance to fund with Mint", async () => {
-  //     const newdepositAmount = new anchor.BN(5000000000000);
-  //     [escrowPda_02, escrowBump_02] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId: "fail_04",
-  //       mint1: mint,
-  //       mint2: ZERO_PUBKEY,
-  //       dep_amount: newdepositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_02 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_02,
-  //       mint
-  //     );
-
-  //     try {
-  //       await fundEscrow({
-  //         program,
-  //         buyer,
-  //         mint,
-
-  //         escrowPda: escrowPda_02,
-  //       });
-
-  //       await checkFundEscrow({
-  //         program,
-  //         provider,
-  //         escrowPda: escrowPda_02,
-  //         escrowAta: escrowAta,
-  //         dep_type: "MINT",
-  //       });
-  //     } catch (error) {
-  //       assert.strictEqual(error.error.errorMessage, "Insufficient Balance");
-  //     }
-  //   });
-
-  //   it("Should fail when escrow has expired", async () => {
-  //     [escrowPda_02, escrowBump_02] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId: "fail_05",
-  //       mint1: mint,
-  //       mint2: ZERO_PUBKEY,
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_02 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_02,
-  //       mint
-  //     );
-
-  //     setTimeout(async () => {
-  //       try {
-  //         await fundEscrow({
-  //           program,
-  //           buyer,
-  //           mint,
-  //           escrowPda: escrowPda_02,
-  //         });
-
-  //         await checkFundEscrow({
-  //           program,
-  //           provider,
-  //           escrowPda: escrowPda_02,
-  //           escrowAta: escrowAta,
-  //           dep_type: "MINT",
-  //         });
-  //       } catch (error) {
-  //         assert.strictEqual(error.error.errorMessage, "Escrow Expired");
-  //       }
-  //     }, 5000);
-  //   });
-
-  //   it("Should fail if the escrow is not already active", async () => {
-  //     [escrowPda_02, escrowBump_02] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId: "fail_06",
-  //       mint1: mint,
-  //       mint2: ZERO_PUBKEY,
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_02,
-  //       mint
-  //     );
-
-  //     try {
-  //       await fundEscrow({
-  //         program,
-  //         buyer,
-  //         mint,
-
-  //         escrowPda: escrowPda_02,
-  //       });
-
-  //       await checkFundEscrow({
-  //         program,
-  //         provider,
-  //         escrowPda: escrowPda_02,
-  //         escrowAta: escrowAta,
-  //         dep_type: "MINT",
-  //       });
-  //     } catch (error) {
-  //       assert.strictEqual(
-  //         error.error.errorMessage,
-  //         "Escrow is not Active. Seller must accept before funding."
-  //       );
-  //     }
-  //   });
-  // });
-
-  // describe("Send Asset", () => {
-  //   let escrowPda_01: any,
-  //     escrowBump_01: any,
-  //     mint_01: PublicKey,
-  //     mint_02: PublicKey,
-  //     buyerATA_01: Account,
-  //     sellerATA_01: Account,
-  //     buyerATA_02: Account,
-  //     sellerATA_02: Account;
-
-  //   it("Should successfully allow the seller to send in Sol as asset", async () => {
-  //     // fund the buyer account with sol
-  //     await airdrop(provider.connection, buyer.publicKey, 3 * 1000000000);
-
-  //     // fund the seller account with sol
-  //     await airdrop(provider.connection, seller.publicKey, 3 * 1000000000);
-
-  //     const minted01 = await mintTokens(provider.connection, buyer, seller);
-  //     mint_01 = minted01.mint;
-  //     buyerATA_01 = minted01.ata;
-  //     sellerATA_01 = minted01.ata2;
-  //     const escrowId = "send_01";
-
-  //     [escrowPda_01, escrowBump_01] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId,
-  //       mint1: mint_01,
-  //       mint2: ZERO_PUBKEY, // SOL
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_01 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_01,
-  //       mint_01
-  //     );
-
-  //     await fundEscrow({
-  //       program,
-  //       buyer,
-  //       mint: mint_01,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     await checkFundEscrow({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       dep_type: "MINT",
-  //     });
-
-  //     await sendAsset({
-  //       program,
-  //       seller,
-  //       mint: mint_01,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     // send asset
-  //     await checkSendAsset({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       rec_type: "SOL",
-  //       mint,
-  //     });
-  //   });
-
-  //   it("Should successfully allow the seller to send in Mint as asset", async () => {
-  //     // fund the buyer account with sol
-  //     await airdrop(provider.connection, buyer.publicKey, 3 * 1000000000);
-
-  //     // fund the seller account with sol
-  //     await airdrop(provider.connection, seller.publicKey, 3 * 1000000000);
-  //     const escrowId = "send_02";
-  //     const minted02 = await mintTokens(provider.connection, seller, buyer);
-  //     mint_02 = minted02.mint;
-  //     sellerATA_01 = minted02.ata;
-  //     buyerATA_01 = minted02.ata2;
-
-  //     [escrowPda_01, escrowBump_01] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId,
-  //       mint2: mint_02,
-  //       mint1: ZERO_PUBKEY, // SOL
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_01 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_01,
-  //       mint_02
-  //     );
-
-  //     await fundEscrow({
-  //       program,
-  //       buyer,
-  //       mint: mint_02,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     await checkFundEscrow({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       dep_type: "SOL",
-  //     });
-
-  //     // send asset
-  //     await sendAsset({
-  //       program,
-  //       seller,
-  //       mint: mint_02,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     await checkSendAsset({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       rec_type: "MINT",
-  //       mint: mint_02,
-  //     });
-  //   });
-
-  //   it("Should fail if the seller does not have sufficient SOL to fund with", async () => {
-  //     // fund the buyer account with sol
-  //     await airdrop(provider.connection, buyer.publicKey, 3 * 1000000000);
-
-  //     // fund the seller account with sol
-  //     await airdrop(provider.connection, seller.publicKey, 300000000);
-
-  //     const minted01 = await mintTokens(provider.connection, buyer, seller);
-  //     mint_01 = minted01.mint;
-  //     buyerATA_01 = minted01.ata;
-  //     sellerATA_01 = minted01.ata2;
-  //     const escrowId = "send_03";
-
-  //     [escrowPda_01, escrowBump_01] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId,
-  //       mint1: mint_01,
-  //       mint2: ZERO_PUBKEY, // SOL
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_01 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_01,
-  //       mint_01
-  //     );
-
-  //     await fundEscrow({
-  //       program,
-  //       buyer,
-  //       mint: mint_01,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     await checkFundEscrow({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       dep_type: "MINT",
-  //     });
-
-  //     try {
-  //       // send asset
-  //       await sendAsset({
-  //         program,
-  //         seller,
-  //         mint: mint_01,
-  //         escrowPda: escrowPda_01,
-  //       });
-  //     } catch (error) {
-  //       assert.strictEqual(error.error.errorMessage, "Insufficient Balance");
-  //     }
-  //   });
-
-  //   it("Should fail if the seller does not have sufficient Mint to fund with", async () => {
-  //     // fund the buyer account with sol
-  //     await airdrop(provider.connection, buyer.publicKey, 5 * 1000000000);
-
-  //     // fund the seller account with sol
-  //     await airdrop(provider.connection, seller.publicKey, 3 * 1000000000);
-  //     const escrowId = "send_04";
-  //     const minted02 = await mintTokens(
-  //       provider.connection,
-  //       seller,
-  //       buyer,
-  //       100000
-  //     );
-  //     mint_02 = minted02.mint;
-  //     sellerATA_01 = minted02.ata;
-  //     buyerATA_01 = minted02.ata2;
-
-  //     [escrowPda_01, escrowBump_01] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId,
-  //       mint2: mint_02,
-  //       mint1: ZERO_PUBKEY, // SOL
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_01 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_01,
-  //       mint_02
-  //     );
-
-  //     await fundEscrow({
-  //       program,
-  //       buyer,
-  //       mint: mint_02,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     await checkFundEscrow({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       dep_type: "SOL",
-  //     });
-
-  //     // send asset
-  //     try {
-  //       await sendAsset({
-  //         program,
-  //         seller,
-  //         mint: mint_02,
-  //         escrowPda: escrowPda_01,
-  //       });
-  //     } catch (error) {
-  //       assert.strictEqual(error.error.errorMessage, "Insufficient Balance");
-  //     }
-  //   });
-
-  //   it("Should fail if the escrow has not been funded by buyer", async () => {
-  //     // fund the buyer account with sol
-  //     await airdrop(provider.connection, buyer.publicKey, 3 * 1000000000);
-
-  //     // fund the seller account with sol
-  //     await airdrop(provider.connection, seller.publicKey, 300000000);
-
-  //     const minted01 = await mintTokens(provider.connection, buyer, seller);
-  //     mint_01 = minted01.mint;
-  //     buyerATA_01 = minted01.ata;
-  //     sellerATA_01 = minted01.ata2;
-  //     const escrowId = "send_06";
-
-  //     [escrowPda_01, escrowBump_01] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId,
-  //       mint1: mint_01,
-  //       mint2: ZERO_PUBKEY, // SOL
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_01 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_01,
-  //       mint_01
-  //     );
-
-  //     try {
-  //       // send asset
-  //       await sendAsset({
-  //         program,
-  //         seller,
-  //         mint: mint_01,
-  //         sellerATA: sellerATA_01,
-  //         escrowPda: escrowPda_01,
-  //         escrowATA: escrowAta,
-  //       });
-  //     } catch (error) {
-  //       assert.strictEqual(error.error.errorMessage, "Escrow Not Funded");
-  //     }
-  //   });
-  // });
-
-  // describe("Confirm Asset", () => {
-  //   let escrowPda_01: any,
-  //     escrowBump_01: any,
-  //     mint_01: PublicKey,
-  //     dummy_mint: PublicKey,
-  //     buyerATA_01: PublicKey,
-  //     sellerATA_01: PublicKey,
-  //     buyerATA_02: Account,
-  //     sellerATA_02: Account;
-
-  //   it("Should allow the buyer to successfully confirm the asset SOL-MINT", async () => {
-  //     // fund the buyer account with sol
-  //     await airdrop(provider.connection, buyer.publicKey, 5 * 1000000000);
-
-  //     // fund the seller account with sol
-  //     await airdrop(provider.connection, seller.publicKey, 3 * 1000000000);
-
-  //     const minted01 = await mintTokens(provider.connection, seller, buyer);
-  //     mint_01 = minted01.mint;
-  //     buyerATA_01 = await getAssociatedTokenAddress(
-  //       mint_01,
-  //       buyer.publicKey,
-  //       true,
-  //       TOKEN_2022_PROGRAM_ID
-  //     );
-
-  //     const minted02 = await mintTokens(provider.connection, seller, buyer);
-  //     dummy_mint = minted02.mint;
-
-  //     sellerATA_01 = await getAssociatedTokenAddress(
-  //       mint_01,
-  //       seller.publicKey,
-  //       true,
-  //       TOKEN_2022_PROGRAM_ID
-  //     );
-  //     const escrowId = "confirm_01";
-
-  //     [escrowPda_01, escrowBump_01] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId,
-  //       mint1: ZERO_PUBKEY,
-  //       mint2: mint_01, // SOL
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_01 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_01,
-  //       mint_01
-  //     );
-
-  //     await fundEscrow({
-  //       program,
-  //       buyer,
-  //       mint: mint_01,
-
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     await checkFundEscrow({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       dep_type: "SOL",
-  //     });
-
-  //     // send asset
-  //     await sendAsset({
-  //       program,
-  //       seller,
-  //       mint: mint_01,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     // Check Send Asset
-  //     await checkSendAsset({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       rec_type: "MINT",
-  //       mint: mint_01,
-  //     });
-
-  //     const accounts = {
-  //       buyer: buyer.publicKey,
-  //       seller: seller.publicKey,
-  //       escrow: escrowPda_01,
-
-  //       depositMint: mint_01,
-  //       receiveMint: mint_01,
-
-  //       escrowDepositAta: null,
-  //       escrowReceiveAta: escrowAta,
-
-  //       // buyerReceiveAta: buyerATA_01,
-  //       // sellerReceiveAta: null,
-
-  //       // sellerReceiveAta: await getAssociatedTokenAddress(
-  //       //   ZERO_PUBKEY,
-  //       //   seller.publicKey,
-  //       //   true,
-  //       //   TOKEN_2022_PROGRAM_ID
-  //       // ),
-
-  //       tokenProgram: TOKEN_2022_PROGRAM_ID,
-  //       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-  //       systemProgram: anchor.web3.SystemProgram.programId,
-  //     };
-
-  //     try {
-  //       await program.methods
-  //         .confirmAsset()
-  //         .accounts(accounts)
-  //         .signers([buyer])
-  //         .rpc();
-  //     } catch (error) {
-  //       console.log({ error });
-  //     }
-
-  //     await checkConfirmAsset({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta,
-  //       dep_type: "SOL",
-  //       rec_type: "MINT",
-  //       mint: mint_01,
-  //       buyer_ata: buyerATA_01,
-  //       seller_ata: sellerATA_01,
-  //       buyer,
-  //       seller,
-  //     });
-  //   });
-
-  //   it("Should allow the buyer to successfully confirm the asset MINT-SOL", async () => {
-  //     // fund the buyer account with sol
-  //     await airdrop(provider.connection, buyer.publicKey, 3 * 1000000000);
-
-  //     // fund the seller account with sol
-  //     await airdrop(provider.connection, seller.publicKey, 3 * 1000000000);
-
-  //     const minted01 = await mintTokens(provider.connection, buyer, seller);
-  //     mint_01 = minted01.mint;
-  //     buyerATA_01 = await getAssociatedTokenAddress(
-  //       mint_01,
-  //       buyer.publicKey,
-  //       true,
-  //       TOKEN_2022_PROGRAM_ID
-  //     );
-
-  //     sellerATA_01 = await getAssociatedTokenAddress(
-  //       mint_01,
-  //       seller.publicKey,
-  //       true,
-  //       TOKEN_2022_PROGRAM_ID
-  //     );
-  //     const escrowId = "confirm_02";
-
-  //     [escrowPda_01, escrowBump_01] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId,
-  //       mint1: mint_01,
-  //       mint2: ZERO_PUBKEY, // SOL
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_01 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_01,
-  //       mint_01
-  //     );
-
-  //     await fundEscrow({
-  //       program,
-  //       buyer,
-  //       mint: mint_01,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     await checkFundEscrow({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       dep_type: "MINT",
-  //     });
-
-  //     // send asset
-
-  //     await sendAsset({
-  //       program,
-  //       seller,
-  //       mint: mint_01,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     // Check Send Asset
-  //     await checkSendAsset({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       rec_type: "SOL",
-  //       mint: mint_01,
-  //     });
-
-  //     const accounts = {
-  //       buyer: buyer.publicKey,
-  //       seller: seller.publicKey,
-  //       escrow: escrowPda_01,
-
-  //       depositMint: mint_01,
-  //       receiveMint: mint_01,
-
-  //       escrowDepositAta: escrowAta,
-  //       escrowReceiveAta: escrowAta,
-
-  //       // buyerReceiveAta: buyerATA_01,
-  //       // sellerReceiveAta: sellerATA_01,
-
-  //       // sellerReceiveAta: await getAssociatedTokenAddress(
-  //       //   ZERO_PUBKEY,
-  //       //   seller.publicKey,
-  //       //   true,
-  //       //   TOKEN_2022_PROGRAM_ID
-  //       // ),
-
-  //       tokenProgram: TOKEN_2022_PROGRAM_ID,
-  //       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-  //       systemProgram: anchor.web3.SystemProgram.programId,
-  //     };
-
-  //     try {
-  //       await program.methods
-  //         .confirmAsset()
-  //         .accounts(accounts)
-  //         .signers([buyer])
-  //         .rpc({ commitment: "confirmed" });
-  //     } catch (error) {
-  //       console.log({ error });
-  //     }
-
-  //     await checkConfirmAsset({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta,
-  //       dep_type: "MINT",
-  //       rec_type: "SOL",
-  //       mint: mint_01,
-  //       buyer_ata: buyerATA_01,
-  //       seller_ata: sellerATA_01,
-  //       buyer,
-  //       seller,
-  //     });
-  //   });
-
-  //   it("Should fail if excrow has expired", async () => {
-  //     // fund the buyer account with sol
-  //     await airdrop(provider.connection, buyer.publicKey, 5 * 1000000000);
-
-  //     // fund the seller account with sol
-  //     await airdrop(provider.connection, seller.publicKey, 3 * 1000000000);
-
-  //     const minted01 = await mintTokens(provider.connection, seller, buyer);
-  //     mint_01 = minted01.mint;
-  //     buyerATA_01 = await getAssociatedTokenAddress(
-  //       mint_01,
-  //       buyer.publicKey,
-  //       true,
-  //       TOKEN_2022_PROGRAM_ID
-  //     );
-
-  //     sellerATA_01 = await getAssociatedTokenAddress(
-  //       mint_01,
-  //       seller.publicKey,
-  //       true,
-  //       TOKEN_2022_PROGRAM_ID
-  //     );
-  //     const escrowId = "confirm_03";
-
-  //     [escrowPda_01, escrowBump_01] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId,
-  //       mint1: ZERO_PUBKEY,
-  //       mint2: mint_01, // SOL
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_01 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_01,
-  //       mint_01
-  //     );
-
-  //     await fundEscrow({
-  //       program,
-  //       buyer,
-  //       mint: mint_01,
-  //       buyerATA: buyerATA_01,
-  //       escrowPda: escrowPda_01,
-  //       escrowATA: escrowAta,
-  //     });
-
-  //     await checkFundEscrow({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       dep_type: "SOL",
-  //     });
-
-  //     // send asset
-  //     await sendAsset({
-  //       program,
-  //       seller,
-  //       mint: mint_01,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     // Check Send Asset
-  //     await checkSendAsset({
-  //       program,
-  //       provider,
-  //       escrowPda: escrowPda_01,
-  //       escrowAta: escrowAta,
-  //       rec_type: "MINT",
-  //       mint: mint_01,
-  //     });
-
-  //     const accounts = {
-  //       buyer: buyer.publicKey,
-  //       seller: seller.publicKey,
-  //       escrow: escrowPda_01,
-
-  //       depositMint: null,
-  //       receiveMint: mint_01,
-
-  //       escrowDepositAta: null,
-  //       escrowReceiveAta: escrowAta,
-
-  //       buyerReceiveAta: buyerATA_01,
-  //       sellerReceiveAta: null,
-
-  //       tokenProgram: TOKEN_2022_PROGRAM_ID,
-  //       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-  //       systemProgram: anchor.web3.SystemProgram.programId,
-  //     };
-
-  //     setTimeout(async () => {
-  //       try {
-  //         await program.methods
-  //           .confirmAsset()
-  //           .accounts(accounts)
-  //           .signers([buyer])
-  //           .rpc();
-  //       } catch (error) {
-  //         assert.strictEqual(error.error.errorMessage, "Escrow Expired");
-  //       }
-  //     }, 6000);
-  //   });
-
-  //   it("Should fail if state is not valid", async () => {
-  //     // fund the buyer account with sol
-  //     await airdrop(provider.connection, buyer.publicKey, 5 * 1000000000);
-
-  //     // fund the seller account with sol
-  //     await airdrop(provider.connection, seller.publicKey, 3 * 1000000000);
-
-  //     const minted01 = await mintTokens(provider.connection, seller, buyer);
-  //     mint_01 = minted01.mint;
-  //     buyerATA_01 = await getAssociatedTokenAddress(
-  //       mint_01,
-  //       buyer.publicKey,
-  //       true,
-  //       TOKEN_2022_PROGRAM_ID
-  //     );
-
-  //     sellerATA_01 = await getAssociatedTokenAddress(
-  //       mint_01,
-  //       seller.publicKey,
-  //       true,
-  //       TOKEN_2022_PROGRAM_ID
-  //     );
-  //     const escrowId = "confirm_05";
-
-  //     [escrowPda_01, escrowBump_01] = await InitializeEscrow({
-  //       program,
-  //       buyer,
-  //       seller,
-  //       escrowId,
-  //       mint1: ZERO_PUBKEY,
-  //       mint2: mint_01, // SOL
-  //       dep_amount: depositAmount,
-  //       rec_amount: depositAmount,
-  //       expiry: new anchor.BN(Date.now() / 1000 + 3600),
-  //     });
-
-  //     await acceptEscrow({ program, seller, escrowPda: escrowPda_01 });
-  //     const escrowAta = await getEscrowATA(
-  //       provider.connection,
-  //       escrowPda_01,
-  //       mint_01
-  //     );
-
-  //     await fundEscrow({
-  //       program,
-  //       buyer,
-  //       mint: mint_01,
-  //       escrowPda: escrowPda_01,
-  //     });
-
-  //     const accounts = {
-  //       buyer: buyer.publicKey,
-  //       seller: seller.publicKey,
-  //       escrow: escrowPda_01,
-
-  //       depositMint: mint_01,
-  //       receiveMint: mint_01,
-
-  //       escrowDepositAta: null,
-  //       escrowReceiveAta: escrowAta,
-
-  //       buyerReceiveAta: buyerATA_01,
-  //       sellerReceiveAta: null,
-
-  //       // sellerReceiveAta: await getAssociatedTokenAddress(
-  //       //   ZERO_PUBKEY,
-  //       //   seller.publicKey,
-  //       //   true,
-  //       //   TOKEN_2022_PROGRAM_ID
-  //       // ),
-
-  //       tokenProgram: TOKEN_2022_PROGRAM_ID,
-  //       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-  //       systemProgram: anchor.web3.SystemProgram.programId,
-  //     };
-
-  //     try {
-  //       await program.methods
-  //         .confirmAsset()
-  //         .accounts(accounts)
-  //         .signers([buyer])
-  //         .rpc();
-  //     } catch (error) {
-  //       assert.strictEqual(error.error.errorMessage, "Invalid State");
-  //     }
-  //   });
-  // });
-
-  describe("Refund Amount", () => {
-    let escrowPda: any,
-      escrowBump: any,
-      mint_01: PublicKey,
-      buyerATA_01: PublicKey,
-      sellerATA_01: PublicKey;
-
-    it("Should Refund the Buyer And Seller Amount SOL - MINT", async () => {
-      const amountToFund = 1.5 * 1000000000;
-      // fund the buyer account with sol
-      await airdrop(provider.connection, buyer.publicKey, amountToFund);
-      // fund the seller account with sol
-      await airdrop(provider.connection, seller.publicKey, amountToFund);
-
-      const depositAmount = new anchor.BN(1000000000);
-
-      const minted01 = await mintTokens(provider.connection, seller, buyer);
-      mint_01 = minted01.mint;
-
-      buyerATA_01 = await getAssociatedTokenAddress(
-        mint_01,
-        buyer.publicKey,
-        true,
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      sellerATA_01 = await getAssociatedTokenAddress(
-        mint_01,
-        seller.publicKey,
-        true,
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      const escrowId = "refund_buyer_01";
-
-      [escrowPda, escrowBump] = await InitializeEscrow({
-        program,
-        buyer,
-        seller,
-        escrowId,
-        mint1: ZERO_PUBKEY,
-        mint2: mint_01,
-        dep_amount: depositAmount,
-        rec_amount: depositAmount,
-        expiry: new anchor.BN(Date.now() / 1000 + 3600),
-      });
-
-      checkEscrow({
-        program,
-        escrowPda,
-        expected: {
-          bump: escrowBump,
-          buyer,
-          seller,
-          escrow_id: escrowId,
-          depositMint: ZERO_PUBKEY,
-          depositAmount,
-          receiveMint: mint_01,
-          receiveAmount: depositAmount,
-          expiry,
-        },
-      });
-
-      // accept Escrow
-      await acceptEscrow({ program, seller, escrowPda });
-      checkAcceptEscrow({ program, escrowPda, seller });
-
-      // create escrow ATA
-      const escrowAta = await getEscrowATA(
+  let Bob = anchor.web3.Keypair.generate();
+  let Alice = anchor.web3.Keypair.generate();
+
+  describe("Init Escrow", () => {
+    let depositAmount: number, receiveAmount: number, mint: PublicKey;
+    beforeEach(async () => {
+      // airdrop Bob
+      await airdrop(provider.connection, Bob.publicKey, 1 * LAMPORTS_PER_SOL);
+      depositAmount = 0.2 * LAMPORTS_PER_SOL;
+
+      // Create Mint
+      const res = await createAndMintTokens(
         provider.connection,
-        escrowPda,
-        mint_01
+        Bob,
+        1 * LAMPORTS_PER_SOL
       );
+      mint = res.mint;
+      receiveAmount = 0.01 * LAMPORTS_PER_SOL;
+    });
 
-      // const buyer before balance
-      const buyerBeforeFund = await provider.connection.getBalance(
-        buyer.publicKey
-      );
+    it("Should Allow Bob to Initialize and Fund Escrow with SOL", async () => {
+      const escrowId = "test_01";
 
-      // Fund Escrow By Buyer
-      await fundEscrow({
+      await init_escrow({
         program,
-        mint: mint_01, // Place holder
-        buyer,
-        escrowPda,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: PublicKey.default,
+        receiveMint: mint,
+        depositAmount,
+        receiveAmount,
       });
 
-      checkFundEscrow({
-        program,
+      await checkInitEscrow({
         provider,
-        escrowPda,
-        escrowAta,
-        dep_type: "SOL",
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: PublicKey.default,
+        receiveMint: mint,
+        depositAmount,
+        receiveAmount,
+      });
+    });
+
+    it("Should Allow Bob to Initialize and Fund Escrow with TOKEN", async () => {
+      const escrowId = "test_02";
+
+      const tx = await init_escrow({
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: mint,
+        receiveMint: PublicKey.default,
+        depositAmount,
+        receiveAmount,
       });
 
-      // const buyer before balance
-      const buyerAfterFund = await provider.connection.getBalance(
-        buyer.publicKey
+      await checkInitEscrow({
+        provider,
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: mint,
+        receiveMint: PublicKey.default,
+        depositAmount,
+        receiveAmount,
+      });
+    });
+
+    it("Should fail when the deposit Amount is zero", async () => {
+      const escrowId = "test_03";
+
+      try {
+        await init_escrow({
+          program,
+          escrowId,
+          escrowAuthority: Bob,
+          receiver: Alice,
+          depositMint: mint,
+          receiveMint: PublicKey.default,
+          depositAmount: new anchor.BN(0),
+          receiveAmount,
+        });
+      } catch (error) {
+        assert.strictEqual(error.error.errorMessage, "Low Deposit Amount");
+      }
+    });
+
+    it("Should fail when the receive Amount is zero", async () => {
+      const escrowId = "test_04";
+
+      try {
+        await init_escrow({
+          program,
+          escrowId,
+          escrowAuthority: Bob,
+          receiver: Alice,
+          depositMint: mint,
+          receiveMint: PublicKey.default,
+          depositAmount,
+          receiveAmount: new anchor.BN(0),
+        });
+      } catch (error) {
+        assert.strictEqual(error.error.errorMessage, "Low Receive Amount");
+      }
+    });
+
+    it("Should fail when the tokens are the same", async () => {
+      const escrowId = "test_05";
+
+      try {
+        await init_escrow({
+          program,
+          escrowId,
+          escrowAuthority: Bob,
+          receiver: Alice,
+          depositMint: mint,
+          receiveMint: mint,
+          depositAmount,
+          receiveAmount,
+        });
+      } catch (error) {
+        assert.strictEqual(
+          error.error.errorMessage,
+          "Token to the same token is not allowed"
+        );
+      }
+    });
+
+    it("Should fail when the deposit Mint is invalid", async () => {
+      const escrowId = "test_06";
+
+      let minted = await createAndMintTokens(
+        provider.connection,
+        Bob,
+        0.0001 * LAMPORTS_PER_SOL
+      );
+
+      try {
+        await program.methods
+          .initEscrow(
+            escrowId,
+            mint,
+            new anchor.BN(depositAmount),
+            PublicKey.default,
+            new anchor.BN(receiveAmount)
+          )
+          .accounts({
+            escrowAuthority: Bob.publicKey,
+            receiver: Alice.publicKey,
+            depositMint: minted.mint,
+          })
+          .signers([Bob])
+          .rpc({ commitment: "confirmed" });
+      } catch (error) {
+        assert.strictEqual(
+          error.error.errorMessage,
+          "Invalid Deposit Token mint"
+        );
+      }
+    });
+
+    it("Should fail when authority has insufficient balance", async () => {
+      const escrowId = "test_06";
+
+      let new_mint = await createMint(
+        provider.connection,
+        Bob,
+        Bob.publicKey,
+        null,
+        6,
+        undefined,
+        undefined,
+        TOKEN_2022_PROGRAM_ID
+      );
+
+      try {
+        await program.methods
+          .initEscrow(
+            escrowId,
+            new_mint,
+            new anchor.BN(depositAmount),
+            PublicKey.default,
+            new anchor.BN(receiveAmount)
+          )
+          .accounts({
+            escrowAuthority: Bob.publicKey,
+            receiver: Alice.publicKey,
+            depositMint: new_mint,
+          })
+          .signers([Bob])
+          .rpc({ commitment: "confirmed" });
+      } catch (error) {
+        assert.strictEqual(error.error.errorMessage, "Insufficient balance");
+      }
+    });
+
+    it("Should fail when Id is empty string", async () => {
+      const escrowId = "";
+
+      try {
+        await program.methods
+          .initEscrow(
+            escrowId,
+            mint,
+            new anchor.BN(depositAmount),
+            PublicKey.default,
+            new anchor.BN(receiveAmount)
+          )
+          .accounts({
+            escrowAuthority: Bob.publicKey,
+            receiver: Alice.publicKey,
+            depositMint: mint,
+          })
+          .signers([Bob])
+          .rpc({ commitment: "confirmed" });
+      } catch (error) {
+        assert.strictEqual(error.error.errorMessage, "EscrowId too short");
+      }
+    });
+
+    it("Should fail when an escrow is initialized twice withh the same ID", async () => {
+      const escrowId = "test_09";
+
+      try {
+        await program.methods
+          .initEscrow(
+            escrowId,
+            mint,
+            new anchor.BN(depositAmount),
+            PublicKey.default,
+            new anchor.BN(receiveAmount)
+          )
+          .accounts({
+            escrowAuthority: Bob.publicKey,
+            receiver: Alice.publicKey,
+            depositMint: mint,
+          })
+          .signers([Bob])
+          .rpc({ commitment: "confirmed" });
+
+        await program.methods
+          .initEscrow(
+            escrowId,
+            mint,
+            new anchor.BN(depositAmount),
+            PublicKey.default,
+            new anchor.BN(receiveAmount)
+          )
+          .accounts({
+            escrowAuthority: Bob.publicKey,
+            receiver: Alice.publicKey,
+            depositMint: mint,
+          })
+          .signers([Bob])
+          .rpc({ commitment: "confirmed" });
+      } catch (error) {
+        if (error.error && error.error.errorMessage) {
+          assert.equal(error.error.errorMessage, "AccountAlreadyInitialized");
+        } else {
+          const logs = error.logs || error.transactionLogs || [];
+          const found = logs.some((l: string) => l.includes("already in use"));
+          assert.isTrue(found, "Expected 'already in use' error in logs");
+        }
+      }
+    });
+  });
+
+  describe("Accept Escrow", () => {
+    let depositAmount: number, receiveAmount: number, mint: PublicKey;
+    let aliceBeforeSol: number, aliceAfterSol: number;
+    let aliceBeforeMint: number, aliceAfterMint: number;
+    let bobBeforeSol: number, bobAfterSol: number;
+    let bobBeforeMint: number, bobAfterMint: number;
+    let escrowBefore: number, escrowAfter: number;
+    beforeEach(async () => {
+      // airdrop Bob
+      await airdrop(provider.connection, Bob.publicKey, 1 * LAMPORTS_PER_SOL);
+      depositAmount = 0.2 * LAMPORTS_PER_SOL;
+
+      await airdrop(
+        provider.connection,
+        Alice.publicKey,
+        0.2 * LAMPORTS_PER_SOL
+      );
+
+      // Create Mint
+      const res = await createAndMintTokens(
+        provider.connection,
+        Alice,
+        1 * LAMPORTS_PER_SOL
+      );
+      mint = res.mint;
+      receiveAmount = 0.01 * LAMPORTS_PER_SOL;
+    });
+
+    it("Should Allow Alice to Accept Bob Escrow and Fund Alice with SOL", async () => {
+      const escrowId = "accept_01";
+
+      await init_escrow({
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: PublicKey.default,
+        receiveMint: mint,
+        depositAmount,
+        receiveAmount,
+      });
+
+      await checkInitEscrow({
+        provider,
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: PublicKey.default,
+        receiveMint: mint,
+        depositAmount,
+        receiveAmount,
+      });
+
+      let [escrowPda, escrowBump] = getEscrowAddress(
+        escrowId,
+        Bob.publicKey,
+        Alice.publicKey,
+        program.programId
       );
 
       let escrow = await program.account.escrow.fetch(escrowPda);
-      expect(buyerBeforeFund - buyerAfterFund).to.greaterThanOrEqual(
+
+      // SOl to Token Escrow
+      aliceBeforeSol = await getSolBalance({
+        account: Alice.publicKey,
+        provider,
+      });
+      bobBeforeMint = await getMintBalance({
+        account: Bob.publicKey,
+        provider,
+        mint,
+      });
+
+      // Accept Escrow
+      await program.methods
+        .accept(escrowId)
+        .accounts({
+          receiver: Alice.publicKey,
+          escrowAuthority: Bob.publicKey,
+          receiveMint: escrow.receiveMint.equals(PublicKey.default)
+            ? escrow.depositMint
+            : escrow.receiveMint,
+          depositMint: escrow.depositMint.equals(PublicKey.default)
+            ? escrow.receiveMint
+            : escrow.depositMint,
+        })
+        .signers([Alice])
+        .rpc({ commitment: "confirmed" });
+
+      aliceAfterSol = await getSolBalance({
+        account: Alice.publicKey,
+        provider,
+      });
+      bobAfterMint = await getMintBalance({
+        account: Bob.publicKey,
+        provider,
+        mint,
+      });
+      escrowAfter = escrow.depositMint.equals(PublicKey.default)
+        ? await getSolBalance({ account: escrowPda, provider })
+        : await getMintBalance({ account: escrowPda, provider, mint });
+
+      expect(aliceAfterSol - aliceBeforeSol).to.equals(
+        depositAmount,
+        "Wrong Amount for Alice"
+      );
+
+      expect(bobAfterMint - bobBeforeMint).to.equals(
+        receiveAmount,
+        "Wrong Amount for Bob"
+      );
+
+      expect(escrowAfter).to.be.lessThan(depositAmount);
+
+      escrow = await program.account.escrow.fetch(escrowPda);
+      expect(escrow.state).to.deep.equals({ completed: {} });
+    });
+
+    it("Should Allow Alice to Accept Bob Escrow and Fund Alice with MINT", async () => {
+      const escrowId = "accept_02";
+
+      // Create Mint
+      const res = await createAndMintTokens(
+        provider.connection,
+        Bob,
+        1 * LAMPORTS_PER_SOL
+      );
+      let newMint = res.mint;
+
+      await init_escrow({
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: newMint,
+        receiveMint: PublicKey.default,
+        depositAmount,
+        receiveAmount,
+      });
+
+      await checkInitEscrow({
+        provider,
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: newMint,
+        receiveMint: PublicKey.default,
+        depositAmount,
+        receiveAmount,
+      });
+
+      let [escrowPda, escrowBump] = getEscrowAddress(
+        escrowId,
+        Bob.publicKey,
+        Alice.publicKey,
+        program.programId
+      );
+
+      let escrow = await program.account.escrow.fetch(escrowPda);
+
+      bobBeforeSol = await getSolBalance({
+        account: Bob.publicKey,
+        provider,
+      });
+
+      escrowBefore = escrow.depositMint.equals(PublicKey.default)
+        ? await getSolBalance({ account: escrowPda, provider })
+        : await getMintBalance({ account: escrowPda, provider, mint: newMint });
+
+      // Accept Escrow
+      await program.methods
+        .accept(escrowId)
+        .accounts({
+          receiver: Alice.publicKey,
+          escrowAuthority: Bob.publicKey,
+          receiveMint: escrow.receiveMint.equals(PublicKey.default)
+            ? escrow.depositMint
+            : escrow.receiveMint,
+          depositMint: escrow.depositMint.equals(PublicKey.default)
+            ? escrow.receiveMint
+            : escrow.depositMint,
+        })
+        .signers([Alice])
+        .rpc({ commitment: "confirmed" });
+
+      aliceAfterMint = await getMintBalance({
+        account: Alice.publicKey,
+        provider,
+        mint: newMint,
+      });
+
+      bobAfterSol = await getSolBalance({
+        account: Bob.publicKey,
+        provider,
+      });
+
+      escrowAfter = escrow.depositMint.equals(PublicKey.default)
+        ? await getSolBalance({ account: escrowPda, provider })
+        : await getMintBalance({ account: escrowPda, provider, mint: newMint });
+
+      expect(aliceAfterMint).to.equals(depositAmount, "Wrong Amount for Alice");
+
+      expect(bobAfterSol - bobBeforeSol).to.equals(
+        receiveAmount,
+        "Wrong Amount for Bob"
+      );
+
+      expect(escrowBefore - escrowAfter).to.equals(depositAmount);
+
+      escrow = await program.account.escrow.fetch(escrowPda);
+      expect(escrow.state).to.deep.equals({ completed: {} });
+    });
+
+    it("Should fail if deposit mint does not tally", async () => {
+      const escrowId = "accept_03";
+
+      let resP = await createAndMintTokens(
+        provider.connection,
+        Bob,
+        1 * LAMPORTS_PER_SOL
+      );
+      mint = resP.mint;
+
+      // Create Mint
+      const res = await createAndMintTokens(
+        provider.connection,
+        Bob,
+        1 * LAMPORTS_PER_SOL
+      );
+      let newMint = res.mint;
+
+      await init_escrow({
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: mint,
+        receiveMint: PublicKey.default,
+        depositAmount,
+        receiveAmount,
+      });
+
+      await checkInitEscrow({
+        provider,
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: mint,
+        receiveMint: PublicKey.default,
+        depositAmount,
+        receiveAmount,
+      });
+
+      let [escrowPda, escrowBump] = getEscrowAddress(
+        escrowId,
+        Bob.publicKey,
+        Alice.publicKey,
+        program.programId
+      );
+
+      let escrow = await program.account.escrow.fetch(escrowPda);
+
+      // Accept Escrow
+      try {
+        await program.methods
+          .accept(escrowId)
+          .accounts({
+            receiver: Alice.publicKey,
+            escrowAuthority: Bob.publicKey,
+            receiveMint: escrow.receiveMint.equals(PublicKey.default)
+              ? escrow.depositMint
+              : escrow.receiveMint,
+            depositMint: newMint,
+          })
+          .signers([Alice])
+          .rpc({ commitment: "confirmed" });
+      } catch (error) {
+        assert.strictEqual(
+          error.error.errorMessage,
+          "Invalid Deposit Token mint"
+        );
+      }
+    });
+
+    it("Should fail if receive mint does not tally", async () => {
+      const escrowId = "accept_04";
+
+      // Create Mint
+      const res = await createAndMintTokens(
+        provider.connection,
+        Bob,
+        1 * LAMPORTS_PER_SOL
+      );
+      let newMint = res.mint;
+
+      await init_escrow({
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: PublicKey.default,
+        receiveMint: mint,
+        depositAmount,
+        receiveAmount,
+      });
+
+      await checkInitEscrow({
+        provider,
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: PublicKey.default,
+        receiveMint: mint,
+        depositAmount,
+        receiveAmount,
+      });
+
+      let [escrowPda, escrowBump] = getEscrowAddress(
+        escrowId,
+        Bob.publicKey,
+        Alice.publicKey,
+        program.programId
+      );
+
+      // Accept Escrow
+      try {
+        await program.methods
+          .accept(escrowId)
+          .accounts({
+            receiver: Alice.publicKey,
+            escrowAuthority: Bob.publicKey,
+            receiveMint: newMint,
+            depositMint: mint,
+          })
+          .signers([Alice])
+          .rpc({ commitment: "confirmed" });
+      } catch (error) {
+        assert.strictEqual(
+          error.error.errorMessage,
+          "Invalid Receive Token mint"
+        );
+      }
+    });
+
+    it("Should Allow Alice to Accept Bob Escrow and Fund Alice with SOL", async () => {
+      const escrowId = "accept_05";
+
+      await init_escrow({
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: PublicKey.default,
+        receiveMint: mint,
+        depositAmount,
+        receiveAmount,
+      });
+
+      await checkInitEscrow({
+        provider,
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: PublicKey.default,
+        receiveMint: mint,
+        depositAmount,
+        receiveAmount,
+      });
+
+      let [escrowPda, escrowBump] = getEscrowAddress(
+        escrowId,
+        Bob.publicKey,
+        Alice.publicKey,
+        program.programId
+      );
+
+      let escrow = await program.account.escrow.fetch(escrowPda);
+
+      // SOl to Token Escrow
+      aliceBeforeSol = await getSolBalance({
+        account: Alice.publicKey,
+        provider,
+      });
+      bobBeforeMint = await getMintBalance({
+        account: Bob.publicKey,
+        provider,
+        mint,
+      });
+
+      // Accept Escrow
+      await program.methods
+        .accept(escrowId)
+        .accounts({
+          receiver: Alice.publicKey,
+          escrowAuthority: Bob.publicKey,
+          receiveMint: escrow.receiveMint.equals(PublicKey.default)
+            ? escrow.depositMint
+            : escrow.receiveMint,
+          depositMint: escrow.depositMint.equals(PublicKey.default)
+            ? escrow.receiveMint
+            : escrow.depositMint,
+        })
+        .signers([Alice])
+        .rpc({ commitment: "confirmed" });
+
+      aliceAfterSol = await getSolBalance({
+        account: Alice.publicKey,
+        provider,
+      });
+      bobAfterMint = await getMintBalance({
+        account: Bob.publicKey,
+        provider,
+        mint,
+      });
+      escrowAfter = escrow.depositMint.equals(PublicKey.default)
+        ? await getSolBalance({ account: escrowPda, provider })
+        : await getMintBalance({ account: escrowPda, provider, mint });
+
+      expect(aliceAfterSol - aliceBeforeSol).to.equals(
+        depositAmount,
+        "Wrong Amount for Alice"
+      );
+
+      expect(bobAfterMint - bobBeforeMint).to.equals(
+        receiveAmount,
+        "Wrong Amount for Bob"
+      );
+
+      expect(escrowAfter).to.be.lessThan(depositAmount);
+
+      escrow = await program.account.escrow.fetch(escrowPda);
+
+      expect(escrow.state).to.deep.equals({ completed: {} });
+
+      // Accept Escrow
+      try {
+        await program.methods
+          .accept(escrowId)
+          .accounts({
+            receiver: Alice.publicKey,
+            escrowAuthority: Bob.publicKey,
+            receiveMint: escrow.receiveMint.equals(PublicKey.default)
+              ? escrow.depositMint
+              : escrow.receiveMint,
+            depositMint: escrow.depositMint.equals(PublicKey.default)
+              ? escrow.receiveMint
+              : escrow.depositMint,
+          })
+          .signers([Alice])
+          .rpc({ commitment: "confirmed" });
+      } catch (error) {
+        assert.strictEqual(error.error.errorMessage, "Invalid State");
+      }
+    });
+  });
+
+  describe("Close Escrow", () => {
+    let depositAmount: number, receiveAmount: number, mint: PublicKey;
+    let bobBeforeSol: number, bobAfterSol: number;
+    let bobBeforeMint: number, bobAfterMint: number;
+    beforeEach(async () => {
+      // airdrop Bob
+      await airdrop(provider.connection, Bob.publicKey, 1 * LAMPORTS_PER_SOL);
+      depositAmount = 0.2 * LAMPORTS_PER_SOL;
+
+      // Create Mint
+      const res = await createAndMintTokens(
+        provider.connection,
+        Bob,
+        1 * LAMPORTS_PER_SOL
+      );
+      mint = res.mint;
+      receiveAmount = 0.01 * LAMPORTS_PER_SOL;
+    });
+
+    it("Successfully close an escrow FUNDED with SOL", async () => {
+      const escrowId = "close_01";
+
+      await init_escrow({
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: PublicKey.default,
+        receiveMint: mint,
+        depositAmount,
+        receiveAmount,
+      });
+
+      await checkInitEscrow({
+        provider,
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: PublicKey.default,
+        receiveMint: mint,
+        depositAmount,
+        receiveAmount,
+      });
+
+      let [escrowPda, escrowBump] = getEscrowAddress(
+        escrowId,
+        Bob.publicKey,
+        Alice.publicKey,
+        program.programId
+      );
+
+      let escrow = await program.account.escrow.fetch(escrowPda);
+      bobBeforeSol = await getSolBalance({
+        account: Bob.publicKey,
+        provider,
+      });
+
+      await program.methods
+        .close(escrowId)
+        .accounts({
+          escrowAuthority: Bob.publicKey,
+          receiver: Alice.publicKey,
+          depositMint: escrow.depositMint.equals(PublicKey.default)
+            ? escrow.receiveMint
+            : escrow.depositMint,
+        })
+        .signers([Bob])
+        .rpc({ commitment: "confirmed" });
+
+      bobAfterSol = await getSolBalance({
+        account: Bob.publicKey,
+        provider,
+      });
+
+      expect(bobAfterSol - bobBeforeSol).to.be.greaterThanOrEqual(
         escrow.depositAmount.toNumber()
       );
 
-      // Send Asset by the Receiver
-      const sellerBeforeFund = await getAccount(
-        provider.connection,
-        sellerATA_01,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
+      try {
+        await program.account.escrow.fetch(escrowPda);
 
-      const escrowBeforeFund = await getAccount(
-        provider.connection,
-        escrowAta,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
-      await sendAsset({
-        program,
-        seller,
-        mint: mint_01,
-        escrowPda,
-      });
+        assert.fail("Expected fetch to throw an error for closed account");
+      } catch (err) {
+        console.log({ err });
 
-      const sellerAfterFund = await getAccount(
-        provider.connection,
-        sellerATA_01,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
+        const msg = err.message || err.error?.message || String(err);
 
-      const escrowAfterFund = await getAccount(
-        provider.connection,
-        escrowAta,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      checkSendAsset({
-        program,
-        provider,
-        escrowPda,
-        escrowAta: escrowAta,
-        rec_type: "MINT",
-        mint: mint_01,
-      });
-
-      expect(
-        Number(escrowAfterFund.amount) - Number(escrowBeforeFund.amount)
-      ).to.equal(escrow.receiveAmount.toNumber());
-      expect(
-        Number(sellerBeforeFund.amount) - Number(sellerAfterFund.amount)
-      ).to.greaterThanOrEqual(escrow.receiveAmount.toNumber());
-
-      console.log({ buyerAfterFund });
-      // Don't Confirm And Request Refund
-      await program.methods
-        .refundBuyer()
-        .accounts({
-          buyer: buyer.publicKey,
-          escrow: escrowPda,
-          depositMint: mint_01,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        })
-        .signers([buyer])
-        .rpc({ commitment: "confirmed" });
-
-      escrow = await program.account.escrow.fetch(escrowPda);
-
-      expect(escrow.state).to.deep.equal({ buyerRefunded: {} });
-
-      // const buyer before balance
-      const buyerAfterReFund = await provider.connection.getBalance(
-        buyer.publicKey
-      );
-
-      expect(buyerAfterReFund - buyerAfterFund).to.greaterThanOrEqual(
-        Number(escrow.depositAmount)
-      );
-
-      await checkRefund({
-        program,
-        provider,
-        escrowPda,
-        escrowAta: escrowAta,
-        type: "SOL",
-      });
-
-      // Refund the Seller
-      await program.methods
-        .refundSeller()
-        .accounts({
-          seller: seller.publicKey,
-          escrow: escrowPda,
-          receiveMint: mint_01,
-          escrowReceiveAta: escrowAta,
-          sellerAta: sellerATA_01,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        })
-        .signers([seller])
-        .rpc({ commitment: "confirmed" });
-
-      escrow = await program.account.escrow.fetch(escrowPda);
-
-      expect(escrow.state).to.deep.equal({ closed: {} });
-
-      const sellerAfterReFund = await getAccount(
-        provider.connection,
-        sellerATA_01,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      expect(
-        Number(sellerAfterReFund.amount) - Number(sellerAfterFund.amount)
-      ).to.greaterThanOrEqual(Number(escrow.receiveAmount));
-
-      await checkRefund({
-        program,
-        provider,
-        escrowPda,
-        escrowAta: escrowAta,
-        type: "MINT",
-      });
-
-      escrow = await program.account.escrow.fetch(escrowPda);
-
-      expect(escrow.state).to.deep.equal({ closed: {} });
+        assert.include(
+          msg,
+          "Account does not exist or has no data",
+          "Expected closed escrow fetch to fail"
+        );
+      }
     });
 
-    it("Should Refund the Buyer And Seller Amount MINT - SOL", async () => {
-      const amountToFund = 1.5 * 1000000000;
-      // fund the buyer account with sol
-      await airdrop(provider.connection, buyer.publicKey, amountToFund);
-      // fund the seller account with sol
-      await airdrop(provider.connection, seller.publicKey, amountToFund);
+    it("Successfully close an escrow FUNDED with MINT", async () => {
+      const escrowId = "close_02";
 
-      const depositAmount = new anchor.BN(1000000000);
-
-      const minted01 = await mintTokens(provider.connection, buyer, seller);
-      mint_01 = minted01.mint;
-
-      buyerATA_01 = await getAssociatedTokenAddress(
-        mint_01,
-        buyer.publicKey,
-        true,
-        TOKEN_2022_PROGRAM_ID
+      const res = await createAndMintTokens(
+        provider.connection,
+        Bob,
+        1 * LAMPORTS_PER_SOL
       );
+      mint = res.mint;
 
-      sellerATA_01 = await getAssociatedTokenAddress(
-        mint_01,
-        seller.publicKey,
-        true,
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      const escrowId = "refund_buyer_02";
-
-      [escrowPda, escrowBump] = await InitializeEscrow({
+      await init_escrow({
         program,
-        buyer,
-        seller,
         escrowId,
-        mint1: mint_01,
-        mint2: ZERO_PUBKEY,
-        dep_amount: depositAmount,
-        rec_amount: depositAmount,
-        expiry: new anchor.BN(Date.now() / 1000 + 3600),
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: mint,
+        receiveMint: PublicKey.default,
+        depositAmount,
+        receiveAmount,
       });
 
-      checkEscrow({
-        program,
-        escrowPda,
-        expected: {
-          bump: escrowBump,
-          buyer,
-          seller,
-          escrow_id: escrowId,
-          depositMint: mint_01,
-          depositAmount,
-          receiveMint: ZERO_PUBKEY,
-          receiveAmount: depositAmount,
-          expiry,
-        },
-      });
-
-      // accept Escrow
-      await acceptEscrow({ program, seller, escrowPda });
-      checkAcceptEscrow({ program, escrowPda, seller });
-
-      // create escrow ATA
-      const escrowAta = await getEscrowATA(
-        provider.connection,
-        escrowPda,
-        mint_01
-      );
-
-      // const buyer before balance
-      const buyerBeforeFund = await getAccount(
-        provider.connection,
-        buyerATA_01,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      await program.methods
-        .fundEscrow()
-        .accounts({
-          buyer: buyer.publicKey,
-          mint: mint_01,
-          escrow: escrowPda,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        })
-        .signers([buyer])
-        .rpc({ commitment: "confirmed" });
-
-      checkFundEscrow({
-        program,
+      await checkInitEscrow({
         provider,
-        escrowPda,
-        escrowAta,
-        dep_type: "MINT",
+        program,
+        escrowId,
+        escrowAuthority: Bob,
+        receiver: Alice,
+        depositMint: mint,
+        receiveMint: PublicKey.default,
+        depositAmount,
+        receiveAmount,
       });
 
-      // const buyer before balance
-      const buyerAfterFund = await getAccount(
-        provider.connection,
-        buyerATA_01,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
-      const escrowAfterFund = await getAccount(
-        provider.connection,
-        escrowAta,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
+      bobBeforeMint = await getMintBalance({
+        account: Bob.publicKey,
+        provider,
+        mint,
+      });
+
+      let [escrowPda, escrowBump] = getEscrowAddress(
+        escrowId,
+        Bob.publicKey,
+        Alice.publicKey,
+        program.programId
       );
 
       let escrow = await program.account.escrow.fetch(escrowPda);
 
-      expect(Number(escrowAfterFund.amount)).to.equal(
-        escrow.receiveAmount.toNumber()
-      );
-
-      expect(
-        Number(buyerBeforeFund.amount) - Number(buyerAfterFund.amount)
-      ).to.equal(escrow.depositAmount.toNumber());
-
-      // Send Asset by the Receiver
-      const sellerBeforeFund = await provider.connection.getBalance(
-        seller.publicKey
-      );
-
       await program.methods
-        .sendAsset()
+        .close(escrowId)
         .accounts({
-          seller: seller.publicKey,
-          mint: mint_01,
-          escrow: escrowPda,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          escrowAuthority: Bob.publicKey,
+          receiver: Alice.publicKey,
+          depositMint: escrow.depositMint.equals(PublicKey.default)
+            ? escrow.receiveMint
+            : escrow.depositMint,
         })
-        .signers([seller])
+        .signers([Bob])
         .rpc({ commitment: "confirmed" });
 
-      const sellerAfterFund = await provider.connection.getBalance(
-        seller.publicKey
-      );
-
-      checkSendAsset({
-        program,
+      bobAfterMint = await getMintBalance({
+        account: Bob.publicKey,
         provider,
-        escrowPda,
-        escrowAta: escrowAta,
-        rec_type: "SOL",
-        mint: mint_01,
+        mint,
       });
 
-      expect(
-        Number(sellerBeforeFund) - Number(sellerAfterFund)
-      ).to.greaterThanOrEqual(escrow.receiveAmount.toNumber());
-
-      // Don't Confirm And Request Refund
-      await program.methods
-        .refundBuyer()
-        .accounts({
-          buyer: buyer.publicKey,
-          escrow: escrowPda,
-          depositMint: mint_01,
-
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        })
-        .signers([buyer])
-        .rpc({ commitment: "confirmed" });
-
-      escrow = await program.account.escrow.fetch(escrowPda);
-      expect(escrow.state).to.deep.equal({ buyerRefunded: {} });
-
-      // const buyer before balance
-      const buyerAfterReFund = await getAccount(
-        provider.connection,
-        buyerATA_01,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
+      expect(bobAfterMint - bobBeforeMint).to.be.equals(
+        escrow.depositAmount.toNumber()
       );
-
-      expect(
-        Number(buyerAfterReFund.amount) - Number(buyerAfterFund.amount)
-      ).to.equal(escrow.depositAmount.toNumber());
-
-      await checkRefund({
-        program,
-        provider,
-        escrowPda,
-        escrowAta: escrowAta,
-        type: "MINT",
-      });
-
-      escrow = await program.account.escrow.fetch(escrowPda);
-      expect(escrow.buyerRefund).to.be.true;
-      expect(escrow.sellerRefund).to.be.false;
-
-      // Refund the Seller
-      await program.methods
-        .refundSeller()
-        .accounts({
-          seller: seller.publicKey,
-          escrow: escrowPda,
-          receiveMint: mint_01,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        })
-        .signers([seller])
-        .rpc({ commitment: "confirmed" });
-
-      escrow = await program.account.escrow.fetch(escrowPda);
-      expect(escrow.state).to.deep.equal({ closed: {} });
-
-      // Send Asset by the Receiver
-      const sellerAfterReFund = await provider.connection.getBalance(
-        seller.publicKey
-      );
-      expect(
-        Number(sellerAfterReFund) - Number(sellerAfterFund)
-      ).to.greaterThanOrEqual(Number(escrow.receiveAmount));
-
-      await checkRefund({
-        program,
-        provider,
-        escrowPda,
-        escrowAta: escrowAta,
-        type: "SOL",
-      });
-
-      escrow = await program.account.escrow.fetch(escrowPda);
-
-      expect(escrow.buyerRefund).to.be.true;
-      expect(escrow.sellerRefund).to.be.true;
-      expect(escrow.state).to.deep.equal({ closed: {} });
-    });
-
-    it("Should fail if the escrow is already closed, i.e state Invalid", async () => {
-      const amountToFund = 1.5 * 1000000000;
-      // fund the buyer account with sol
-      await airdrop(provider.connection, buyer.publicKey, amountToFund);
-      // fund the seller account with sol
-      await airdrop(provider.connection, seller.publicKey, amountToFund);
-
-      const depositAmount = new anchor.BN(1000000000);
-
-      const minted01 = await mintTokens(provider.connection, buyer, seller);
-      mint_01 = minted01.mint;
-
-      buyerATA_01 = await getAssociatedTokenAddress(
-        mint_01,
-        buyer.publicKey,
-        true,
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      sellerATA_01 = await getAssociatedTokenAddress(
-        mint_01,
-        seller.publicKey,
-        true,
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      const escrowId = "refund_buyer_03";
-
-      [escrowPda, escrowBump] = await InitializeEscrow({
-        program,
-        buyer,
-        seller,
-        escrowId,
-        mint1: mint_01,
-        mint2: ZERO_PUBKEY,
-        dep_amount: depositAmount,
-        rec_amount: depositAmount,
-        expiry: new anchor.BN(Date.now() / 1000 + 3600),
-      });
-
-      checkEscrow({
-        program,
-        escrowPda,
-        expected: {
-          bump: escrowBump,
-          buyer,
-          seller,
-          escrow_id: escrowId,
-          depositMint: mint_01,
-          depositAmount,
-          receiveMint: ZERO_PUBKEY,
-          receiveAmount: depositAmount,
-          expiry,
-        },
-      });
-
-      // accept Escrow
-      await acceptEscrow({ program, seller, escrowPda });
-      checkAcceptEscrow({ program, escrowPda, seller });
-
-      // create escrow ATA
-      const escrowAta = await getEscrowATA(
-        provider.connection,
-        escrowPda,
-        mint_01
-      );
-
-      // const buyer before balance
-      const buyerBeforeFund = await getAccount(
-        provider.connection,
-        buyerATA_01,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      await program.methods
-        .fundEscrow()
-        .accounts({
-          buyer: buyer.publicKey,
-          mint: mint_01,
-          escrow: escrowPda,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        })
-        .signers([buyer])
-        .rpc({ commitment: "confirmed" });
-
-      checkFundEscrow({
-        program,
-        provider,
-        escrowPda,
-        escrowAta,
-        dep_type: "MINT",
-      });
-
-      // const buyer before balance
-      const buyerAfterFund = await getAccount(
-        provider.connection,
-        buyerATA_01,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
-      const escrowAfterFund = await getAccount(
-        provider.connection,
-        escrowAta,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      let escrow = await program.account.escrow.fetch(escrowPda);
-
-      expect(Number(escrowAfterFund.amount)).to.equal(
-        escrow.receiveAmount.toNumber()
-      );
-
-      expect(
-        Number(buyerBeforeFund.amount) - Number(buyerAfterFund.amount)
-      ).to.equal(escrow.depositAmount.toNumber());
-
-      // Send Asset by the Receiver
-      const sellerBeforeFund = await provider.connection.getBalance(
-        seller.publicKey
-      );
-
-      await program.methods
-        .sendAsset()
-        .accounts({
-          seller: seller.publicKey,
-          mint: mint_01,
-          escrow: escrowPda,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        })
-        .signers([seller])
-        .rpc({ commitment: "confirmed" });
-
-      const sellerAfterFund = await provider.connection.getBalance(
-        seller.publicKey
-      );
-
-      checkSendAsset({
-        program,
-        provider,
-        escrowPda,
-        escrowAta: escrowAta,
-        rec_type: "SOL",
-        mint: mint_01,
-      });
-
-      expect(
-        Number(sellerBeforeFund) - Number(sellerAfterFund)
-      ).to.greaterThanOrEqual(escrow.receiveAmount.toNumber());
-
-      // Don't Confirm And Request Refund
-      await program.methods
-        .refundBuyer()
-        .accounts({
-          buyer: buyer.publicKey,
-          escrow: escrowPda,
-          depositMint: mint_01,
-
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        })
-        .signers([buyer])
-        .rpc({ commitment: "confirmed" });
-
-      // const buyer before balance
-      const buyerAfterReFund = await getAccount(
-        provider.connection,
-        buyerATA_01,
-        "confirmed",
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      expect(
-        Number(buyerAfterReFund.amount) - Number(buyerAfterFund.amount)
-      ).to.equal(escrow.depositAmount.toNumber());
-
-      await checkRefund({
-        program,
-        provider,
-        escrowPda,
-        escrowAta: escrowAta,
-        type: "MINT",
-      });
-
-      escrow = await program.account.escrow.fetch(escrowPda);
-      expect(escrow.buyerRefund).to.be.true;
-      expect(escrow.sellerRefund).to.be.false;
-
-      // Refund the Seller
-      await program.methods
-        .refundSeller()
-        .accounts({
-          seller: seller.publicKey,
-          escrow: escrowPda,
-          receiveMint: mint_01,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        })
-        .signers([seller])
-        .rpc({ commitment: "confirmed" });
-
-      // Send Asset by the Receiver
-      const sellerAfterReFund = await provider.connection.getBalance(
-        seller.publicKey
-      );
-      expect(
-        Number(sellerAfterReFund) - Number(sellerAfterFund)
-      ).to.greaterThanOrEqual(Number(escrow.receiveAmount));
-
-      await checkRefund({
-        program,
-        provider,
-        escrowPda,
-        escrowAta: escrowAta,
-        type: "SOL",
-      });
-
-      escrow = await program.account.escrow.fetch(escrowPda);
-
-      expect(escrow.buyerRefund).to.be.true;
-      expect(escrow.sellerRefund).to.be.true;
-      expect(escrow.state).to.deep.equal({ closed: {} });
 
       try {
-        await program.methods
-          .refundBuyer()
-          .accounts({
-            buyer: buyer.publicKey,
-            escrow: escrowPda,
-            depositMint: mint_01,
+        await program.account.escrow.fetch(escrowPda);
+        assert.fail("Expected fetch to throw an error for closed account");
+      } catch (err) {
+        const msg = err.message || err.error?.message || String(err);
 
-            systemProgram: anchor.web3.SystemProgram.programId,
-            tokenProgram: TOKEN_2022_PROGRAM_ID,
-            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          })
-          .signers([buyer])
-          .rpc({ commitment: "confirmed" });
-      } catch (error) {
-        assert.strictEqual(error.error.errorMessage, "Invalid State");
-      }
-
-      try {
-        await program.methods
-          .refundSeller()
-          .accounts({
-            seller: seller.publicKey,
-            escrow: escrowPda,
-            receiveMint: mint_01,
-            systemProgram: anchor.web3.SystemProgram.programId,
-            tokenProgram: TOKEN_2022_PROGRAM_ID,
-            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          })
-          .signers([seller])
-          .rpc({ commitment: "confirmed" });
-      } catch (error) {
-        assert.strictEqual(error.error.errorMessage, "Invalid State");
-      }
-    });
-
-    it("Should fail if state does not match available states for refund", async () => {
-      const amountToFund = 1.5 * 1000000000;
-      // fund the buyer account with sol
-      await airdrop(provider.connection, buyer.publicKey, amountToFund);
-      // fund the seller account with sol
-      await airdrop(provider.connection, seller.publicKey, amountToFund);
-
-      const depositAmount = new anchor.BN(1000000000);
-
-      const minted01 = await mintTokens(provider.connection, buyer, seller);
-      mint_01 = minted01.mint;
-
-      buyerATA_01 = await getAssociatedTokenAddress(
-        mint_01,
-        buyer.publicKey,
-        true,
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      sellerATA_01 = await getAssociatedTokenAddress(
-        mint_01,
-        seller.publicKey,
-        true,
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      const escrowId = "refund_buyer_04";
-
-      [escrowPda, escrowBump] = await InitializeEscrow({
-        program,
-        buyer,
-        seller,
-        escrowId,
-        mint1: mint_01,
-        mint2: ZERO_PUBKEY,
-        dep_amount: depositAmount,
-        rec_amount: depositAmount,
-        expiry: new anchor.BN(Date.now() / 1000 + 3600),
-      });
-
-      checkEscrow({
-        program,
-        escrowPda,
-        expected: {
-          bump: escrowBump,
-          buyer,
-          seller,
-          escrow_id: escrowId,
-          depositMint: mint_01,
-          depositAmount,
-          receiveMint: ZERO_PUBKEY,
-          receiveAmount: depositAmount,
-          expiry,
-        },
-      });
-
-      try {
-        await program.methods
-          .refundBuyer()
-          .accounts({
-            buyer: buyer.publicKey,
-            escrow: escrowPda,
-            depositMint: mint_01,
-            systemProgram: anchor.web3.SystemProgram.programId,
-            tokenProgram: TOKEN_2022_PROGRAM_ID,
-            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          })
-          .signers([buyer])
-          .rpc({ commitment: "confirmed" });
-      } catch (error) {
-        assert.strictEqual(error.error.errorMessage, "No deposit to refund");
-      }
-
-      try {
-        await program.methods
-          .refundSeller()
-          .accounts({
-            seller: seller.publicKey,
-            escrow: escrowPda,
-            receiveMint: mint_01,
-            systemProgram: anchor.web3.SystemProgram.programId,
-            tokenProgram: TOKEN_2022_PROGRAM_ID,
-            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          })
-          .signers([seller])
-          .rpc({ commitment: "confirmed" });
-      } catch (error) {
-        assert.strictEqual(error.error.errorMessage, "No deposit to refund");
+        assert.include(
+          msg,
+          "Account does not exist or has no data",
+          "Expected closed escrow fetch to fail"
+        );
       }
     });
   });
 });
 
-async function InitializeEscrow({
+const init_escrow = async ({
   program,
-  buyer,
-  seller,
   escrowId,
-  mint1,
-  mint2,
-  dep_amount,
-  rec_amount,
-  expiry,
-}) {
-  const [escrowPda, escrowBump] = getEscrowAddress(
+  escrowAuthority,
+  receiver,
+  depositMint,
+  receiveMint,
+  depositAmount,
+  receiveAmount,
+}) => {
+  return await program.methods
+    .initEscrow(
+      escrowId,
+      depositMint,
+      new anchor.BN(depositAmount),
+      receiveMint,
+      new anchor.BN(receiveAmount)
+    )
+    .accounts({
+      escrowAuthority: escrowAuthority.publicKey,
+      receiver: receiver.publicKey,
+      depositMint: depositMint == PublicKey.default ? receiveMint : depositMint,
+    })
+    .signers([escrowAuthority])
+    .rpc({ commitment: "confirmed" });
+};
+
+const checkInitEscrow = async ({
+  provider,
+  program,
+  escrowId,
+  escrowAuthority,
+  receiver,
+  depositMint,
+  receiveMint,
+  depositAmount,
+  receiveAmount,
+}) => {
+  // Get Pda of the escrow via the ID
+  let [escrowPda, escrowBump] = getEscrowAddress(
     escrowId,
-    buyer.publicKey,
-    seller.publicKey,
+    escrowAuthority.publicKey,
+    receiver.publicKey,
     program.programId
   );
-  await program.methods
-    .initEscrow(escrowId, mint1, dep_amount, mint2, rec_amount, expiry)
-    .accounts({
-      buyer: buyer.publicKey,
-      seller: seller.publicKey,
-      escrow: escrowPda,
-      systemProgram: anchor.web3.SystemProgram.programId,
-    })
-    .signers([buyer])
-    .rpc({ commitment: "confirmed" });
 
-  return [escrowPda, escrowBump];
-}
-
-async function acceptEscrow({ program, seller, escrowPda }) {
-  const tx = await program.methods
-    .acceptEscrow()
-    .accounts({
-      seller: seller.publicKey,
-      escrow: escrowPda,
-    })
-    .signers([seller])
-    .rpc();
-  return tx;
-}
-
-async function fundEscrow({ program, buyer, mint, escrowPda }) {
-  const tx = await program.methods
-    .fundEscrow()
-    .accounts({
-      buyer: buyer.publicKey,
-      mint,
-      escrow: escrowPda,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-    })
-    .signers([buyer])
-    .rpc({ commitment: "confirmed" });
-
-  return tx;
-}
-
-async function sendAsset({ program, seller, mint, escrowPda }) {
-  await program.methods
-    .sendAsset()
-    .accounts({
-      seller: seller.publicKey,
-      mint,
-      escrow: escrowPda,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-    })
-    .signers([seller])
-    .rpc({ commitment: "confirmed" });
-}
-
-function getEscrowAddress(
-  escrow_id: string,
-  buyer: PublicKey,
-  seller: PublicKey,
-  ProgramId: PublicKey
-) {
-  return PublicKey.findProgramAddressSync(
-    [
-      anchor.utils.bytes.utf8.encode(ESCROW_SEED),
-      anchor.utils.bytes.utf8.encode(escrow_id),
-      buyer.toBuffer(),
-      seller.toBuffer(),
-    ],
-    ProgramId
-  );
-}
-
-async function checkEscrow({
-  program,
-  escrowPda,
-  expected: {
-    bump,
-    buyer,
-    seller,
-    escrow_id,
-    depositMint,
-    depositAmount,
-    receiveMint,
-    receiveAmount,
-    expiry,
-  },
-}) {
   let escrow = await program.account.escrow.fetch(escrowPda);
 
   // // Basic Asserts
-  expect(escrow.bump).to.equal(bump);
-  expect(escrow.buyer.toString()).to.equal(buyer.toString());
-  expect(escrow.seller.toString()).to.equal(seller.toString());
-  expect(escrow.escrowId).to.equal(escrow_id);
+  expect(escrowBump).to.be.a("number");
+  expect(escrow.escrowAuthority.toString()).to.equal(
+    escrowAuthority.publicKey.toString()
+  );
+  expect(escrow.receiver.toString()).to.equal(receiver.publicKey.toString());
+  expect(escrow.escrowId).to.equal(escrowId);
 
   // Mint Asserts
   expect(escrow.depositMint.toString()).to.equal(
@@ -2456,32 +1007,36 @@ async function checkEscrow({
 
   // Amount Asserts
   expect(escrow.depositAmount.toNumber()).to.equal(
-    depositAmount.toNumber(),
+    depositAmount,
     "Deposit amount mismatch"
   );
 
   expect(escrow.receiveAmount.toNumber()).to.equal(
-    receiveAmount.toNumber(),
+    receiveAmount,
     "Receive amount mismatch"
   );
 
   // State
-  expect(escrow.state).to.deep.equal({ pending: {} });
-
-  // Time stamp
-  const now = Math.floor(Date.now());
-  expect(escrow.createdAt.toNumber()).to.be.lessThanOrEqual(now);
-  expect(escrow.expiry.toNumber()).to.equal(expiry.toNumber());
-}
-
-async function checkAcceptEscrow({ program, escrowPda, seller }) {
-  let escrow = await program.account.escrow.fetch(escrowPda);
   expect(escrow.state).to.deep.equal({ active: {} });
-}
 
-async function checkRefund({ program, provider, escrowPda, escrowAta, type }) {
-  let escrow = await program.account.escrow.fetch(escrowPda);
+  checkEscrowBalance({
+    provider,
+    program,
+    escrow,
+    escrowPda,
+    type: depositMint == PublicKey.default ? "SOL" : "MINT",
+    mint: depositMint == PublicKey.default ? receiveMint : depositMint,
+  });
+};
 
+const checkEscrowBalance = async ({
+  provider,
+  program,
+  escrow,
+  escrowPda,
+  type,
+  mint,
+}) => {
   if (type == "SOL") {
     // get sol vault pda
     const vaultPda = await getSolVaultPda(escrowPda, program);
@@ -2491,198 +1046,17 @@ async function checkRefund({ program, provider, escrowPda, escrowAta, type }) {
     // Token deposit case
     const escrow_account = await getAccount(
       provider.connection,
-      escrowAta,
+      await getEscrowATA(program.connection, escrowPda, mint),
       "confirmed",
       TOKEN_2022_PROGRAM_ID
     );
 
-    expect(Number(escrow_account.amount)).to.equal(0);
+    expect(Number(escrow_account.amount)).to.equal(escrow.depositAmount);
   }
-}
+};
 
-async function checkFundEscrow({
-  program,
-  provider,
-  escrowPda,
-  escrowAta,
-  dep_type,
-}) {
-  let escrow = await program.account.escrow.fetch(escrowPda);
-
-  expect(escrow.state).to.deep.equal({ funded: {} });
-
-  if (dep_type == "SOL") {
-    // get sol vault pda
-    const vaultPda = await getSolVaultPda(escrowPda, program);
-    const escrowBalance = await provider.connection.getBalance(vaultPda);
-    expect(escrowBalance).to.greaterThanOrEqual(
-      escrow.depositAmount.toNumber()
-    );
-
-    // const buyerBalance = await provider.connection.getBalance(escrow.buyer);
-  } else {
-    // Token deposit case
-    const escrow_account = await getAccount(
-      provider.connection,
-      escrowAta,
-      "confirmed",
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    expect(Number(escrow_account.amount)).to.greaterThanOrEqual(
-      escrow.depositAmount.toNumber()
-    );
-  }
-}
-
-async function checkSendAsset({
-  program,
-  provider,
-  escrowPda,
-  escrowAta,
-  rec_type,
-  mint,
-}) {
-  let escrow = await program.account.escrow.fetch(escrowPda);
-  expect(escrow.state).to.deep.equal({ assetSent: {} });
-
-  if (rec_type == "SOL") {
-    const solVaultPda = await getSolVaultPda(escrowPda, program);
-    const escrowBalance = await provider.connection.getBalance(solVaultPda);
-    expect(escrowBalance).to.greaterThanOrEqual(
-      escrow.receiveAmount.toNumber()
-    );
-  } else {
-    // Token deposit case
-    const escrow_account = await getAccount(
-      provider.connection,
-      escrowAta,
-      "confirmed",
-      TOKEN_2022_PROGRAM_ID
-    );
-    expect(Number(escrow_account.amount)).to.greaterThanOrEqual(
-      escrow.receiveAmount.toNumber()
-    );
-
-    expect(escrow.receiveMint.toBase58()).to.equal(mint.toBase58());
-  }
-}
-
-async function checkConfirmAsset({
-  program,
-  provider,
-  escrowPda,
-  escrowAta,
-  dep_type,
-  rec_type,
-  mint,
-  buyer_ata,
-  seller_ata,
-  buyer,
-  seller,
-}) {
-  let escrow = await program.account.escrow.fetch(escrowPda);
-  expect(escrow.state).to.deep.equal({ released: {} });
-
-  if (dep_type === "SOL") {
-    const solVaultPda = await getSolVaultPda(escrowPda, program);
-    const vaultBalance = await provider.connection.getBalance(solVaultPda);
-    expect(vaultBalance).to.lessThan(escrow.depositAmount.toNumber());
-
-    // Seller must receive SOL
-    const sellerBalance = await provider.connection.getBalance(
-      seller.publicKey
-    );
-
-    expect(sellerBalance).to.be.greaterThanOrEqual(
-      escrow.depositAmount.toNumber()
-    );
-  }
-
-  if (dep_type === "MINT") {
-    // Token deposit ATA must be empty
-    const escrowDepositAccount = await getAccount(
-      provider.connection,
-      escrowAta,
-      "confirmed",
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    expect(Number(escrowDepositAccount.amount)).to.equal(0);
-    expect(escrow.depositMint.toBase58()).to.equal(mint.toBase58());
-
-    // Seller token ATA must contain the deposited amount
-    const sellerAccount = await getAccount(
-      provider.connection,
-      seller_ata,
-      "confirmed",
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    expect(Number(sellerAccount.amount)).to.be.greaterThanOrEqual(
-      escrow.depositAmount.toNumber()
-    );
-  }
-
-  if (rec_type === "SOL") {
-    // Buyer must receive SOL
-    const buyerBalance = await provider.connection.getBalance(buyer.publicKey);
-    expect(buyerBalance).to.greaterThanOrEqual(escrow.receiveAmount.toNumber());
-  }
-
-  if (rec_type === "MINT") {
-    // Buyer token ATA must contain the released amount
-    const buyerAccount = await getAccount(
-      provider.connection,
-      buyer_ata,
-      "confirmed",
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    expect(Number(buyerAccount.amount)).to.greaterThanOrEqual(
-      escrow.receiveAmount.toNumber()
-    );
-
-    // Check the mint matches
-    expect(escrow.receiveMint.toBase58()).to.equal(mint.toBase58());
-  }
-
-  // Escrow PDA should hold no tokens (common invariant)
-  if (escrowAta) {
-    const escrowTokenAcc = await getAccount(
-      provider.connection,
-      escrowAta,
-      "confirmed",
-      TOKEN_2022_PROGRAM_ID
-    );
-    expect(Number(escrowTokenAcc.amount)).to.equal(0);
-  }
-
-  // Required: expiry must still be > now (not expired)
-  expect(escrow.expiry.toNumber()).to.be.greaterThan(
-    Math.floor(Date.now() / 1000)
-  );
-
-  // // Required: escrow is now locked and can't be reused
-  // expect(escrow.depositAmount.toNumber()).to.equal(0);
-  // expect(escrow.receiveAmount.toNumber()).to.equal(0);
-
-  return true;
-}
-
-async function checkRefundEscrow({ program, provider, escrowPda, type }) {
-  let escrow = await program.account.escrow.fetch(escrowPda);
-  expect(escrow.state).to.deep.equal({ assetSent: {} });
-
-  // if (dep_type == "SOL") {
-  //   const solVaultPda = await getSolVaultPda(escrowPda, program);
-  //   const escrowBalance = await provider.connection.getBalance(solVaultPda);
-  //   expect(escrowBalance).to.lessThanOrEqual(escrow.receiveAmount.toNumber());
-  // } else {
-  // }
-}
-
-async function airdrop(connection: any, address: any, amount = 1000000000) {
+// HELPERS
+async function airdrop(connection: any, address: any, amount: number) {
   await connection.confirmTransaction(
     await connection.requestAirdrop(address, amount),
     "confirmed"
@@ -2707,13 +1081,55 @@ async function getEscrowATA(connection: any, account: any, mint: any) {
   );
 }
 
-async function mintTokens(
+async function getSolBalance({ account, provider }) {
+  return await provider.connection.getBalance(account, {
+    commitment: "confirmed",
+  });
+}
+
+// account is public key in here
+async function getMintBalance({ account, provider, mint }) {
+  const ata = await getAssociatedTokenAddress(
+    mint,
+    account,
+    true,
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  // Token deposit ATA must be empty
+  const mint_act = await getAccount(
+    provider.connection,
+    ata,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  return Number(mint_act.amount);
+}
+
+function getEscrowAddress(
+  escrow_id: string,
+  buyer: PublicKey,
+  seller: PublicKey,
+  ProgramId: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      anchor.utils.bytes.utf8.encode(ESCROW_SEED),
+      anchor.utils.bytes.utf8.encode(escrow_id),
+      buyer.toBuffer(),
+      seller.toBuffer(),
+    ],
+    ProgramId
+  );
+}
+
+async function createAndMintTokens(
   connection: any,
   account: any,
-  account2?: any,
-  amount = 5000000000000
+  amount: number
 ) {
-  // Create mint
+  // Create Mint
   const mint = await createMint(
     connection,
     account,
@@ -2725,7 +1141,6 @@ async function mintTokens(
     TOKEN_2022_PROGRAM_ID
   );
 
-  // buyer ATA
   const ata = await getOrCreateAssociatedTokenAccount(
     connection,
     account,
@@ -2738,23 +1153,6 @@ async function mintTokens(
     ASSOCIATED_TOKEN_PROGRAM_ID
   );
 
-  let ata2 = null;
-  // seller ATA
-  if (account2) {
-    ata2 = await getOrCreateAssociatedTokenAccount(
-      connection,
-      account2,
-      mint,
-      account2.publicKey,
-      false,
-      undefined,
-      undefined,
-      TOKEN_2022_PROGRAM_ID,
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-  }
-
-  // Mint to buyer
   await mintTo(
     connection,
     account,
@@ -2767,26 +1165,5 @@ async function mintTokens(
     TOKEN_2022_PROGRAM_ID
   );
 
-  return { mint, ata, ata2 };
-}
-
-async function mintMoreTokens(
-  connection: any,
-  ata: any,
-  account: any,
-  mint: any,
-  amount: any
-) {
-  // Mint to buyer
-  return await mintTo(
-    connection,
-    account,
-    mint,
-    ata.address,
-    account.publicKey,
-    amount,
-    [],
-    undefined,
-    TOKEN_2022_PROGRAM_ID
-  );
+  return { mint, ata };
 }

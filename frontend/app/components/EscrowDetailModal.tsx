@@ -16,15 +16,7 @@ import {
 import { useToast } from "../hooks/use-toast";
 import type { Escrow, EscrowStatus } from "../types/escrow";
 import { MINT_TO_TOKEN } from "../lib/tokenMap";
-import {
-  acceptEscrow,
-  confirmAsset,
-  fundEscrow,
-  getEscrowBalances,
-  refundBuyer,
-  refundSeller,
-  sendAsset,
-} from "../lib/escrow";
+import { acceptEscrow, getEscrowBalances, closeEscrow } from "../lib/escrow";
 
 interface EscrowDetailModalProps {
   escrow: Escrow | null;
@@ -44,12 +36,11 @@ export function EscrowDetailModal({
 
   const connectedAddress = wallet.publicKey?.toString();
   const [depositBalance, setDepositBalance] = useState<number | null>(null);
-  const [receiveBalance, setReceiveBalance] = useState<number | null>(null);
 
   useEffect(() => {
     if (!escrow) return;
     const fetchBalances = async () => {
-      const { depositBalance, receiveBalance } = await getEscrowBalances(
+      const { depositBalance } = await getEscrowBalances(
         connection,
         wallet,
         escrow.escrowPda,
@@ -57,15 +48,14 @@ export function EscrowDetailModal({
         escrow.receiveMint
       );
       setDepositBalance(depositBalance);
-      setReceiveBalance(receiveBalance);
     };
     fetchBalances();
   }, [escrow]);
 
   if (!escrow) return null;
 
-  const isBuyer = connectedAddress === escrow.buyer;
-  const isSeller = connectedAddress === escrow.seller;
+  const isOwner = connectedAddress === escrow.owner;
+  const isReceiver = connectedAddress === escrow.receiver;
 
   const copyEscrowId = () => {
     navigator.clipboard.writeText(escrow.escrowPda);
@@ -87,15 +77,6 @@ export function EscrowDetailModal({
     });
   };
 
-  const calculateTimeRemaining = () => {
-    const now = new Date();
-    const expiry = new Date(escrow.expiry);
-    const diff = expiry.getTime() - now.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    return `${days}d ${hours}h`;
-  };
-
   const handleAction = async (action: string) => {
     let fn: (() => Promise<{ tx: string; escrowPda: string }>) | null = null;
 
@@ -104,26 +85,10 @@ export function EscrowDetailModal({
         fn = () => acceptEscrow(connection, wallet, escrow.escrowPda);
         break;
 
-      case "fund":
-        fn = () => fundEscrow(connection, wallet, escrow.escrowPda);
+      case "close":
+        fn = () => closeEscrow(connection, wallet, escrow.escrowPda);
         break;
 
-      case "sendAsset":
-        fn = () => sendAsset(connection, wallet, escrow.escrowPda);
-        break;
-
-      case "confirm":
-        fn = () => confirmAsset(connection, wallet, escrow.escrowPda);
-        break;
-
-      case "refund_buyer":
-        fn = () => refundBuyer(connection, wallet, escrow.escrowPda);
-        break;
-
-      case "refund_seller":
-        fn = () => refundSeller(connection, wallet, escrow.escrowPda);
-        break;
-        
       default:
         console.warn("Unknown action:", action);
         return;
@@ -229,11 +194,11 @@ export function EscrowDetailModal({
           {/* Details Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Buyer</p>
+              <p className="text-sm text-muted-foreground mb-1">Owner</p>
               <p className="font-mono text-sm">
-                {shortenAddress(escrow.buyer)}
+                {shortenAddress(escrow.owner)}
               </p>
-              {isBuyer && (
+              {isOwner && (
                 <Badge variant="default" className="mt-1">
                   You
                 </Badge>
@@ -241,11 +206,11 @@ export function EscrowDetailModal({
             </div>
 
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Seller</p>
+              <p className="text-sm text-muted-foreground mb-1">Receiver</p>
               <p className="font-mono text-sm">
-                {shortenAddress(escrow.seller)}
+                {shortenAddress(escrow.receiver)}
               </p>
-              {isSeller && (
+              {isReceiver && (
                 <Badge variant="default" className="mt-1">
                   You
                 </Badge>
@@ -256,21 +221,13 @@ export function EscrowDetailModal({
               <p className="text-sm text-muted-foreground mb-1">Created</p>
               <p className="font-medium">{formatDate(escrow.createdAt)}</p>
             </div>
-
-            <div className="col-span-2">
-              <p className="text-sm text-muted-foreground mb-1">Expires In</p>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-warning" />
-                <p className="font-medium">{calculateTimeRemaining()}</p>
-              </div>
-            </div>
           </div>
 
           <Separator />
           {/* ESCROW CONTRACT BALANCE */}
           <div>
             <p className="text-sm text-muted-foreground mb-2">
-              Escrow Balances
+              Deposited Balance in Escrow
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
@@ -283,18 +240,6 @@ export function EscrowDetailModal({
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {MINT_TO_TOKEN[escrow.depositMint]}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-primary/30 p-3 bg-muted/20">
-                <p className="text-xs text-muted-foreground mb-1">
-                  Receive Token Balance
-                </p>
-                <p className="text-lg font-semibold">
-                  {receiveBalance !== null ? receiveBalance : "Loading..."}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {MINT_TO_TOKEN[escrow.receiveMint]}
                 </p>
               </div>
             </div>
@@ -315,10 +260,9 @@ export function EscrowDetailModal({
           {/* Actions */}
           <div className="space-y-3">
             <p className="text-sm font-semibold">Available Actions</p>
-
             {
               <div className="grid grid-cols-2 gap-3">
-                {isSeller && escrow.state === "pending" && (
+                {isReceiver && escrow.state === "active" && (
                   <Button
                     onClick={() => handleAction("accept")}
                     className="gap-2"
@@ -327,58 +271,17 @@ export function EscrowDetailModal({
                     Accept
                   </Button>
                 )}
-                {isBuyer && escrow.state === "active" && (
+                {isOwner && ["completed", "active"].includes(escrow.state) && (
                   <Button
-                    onClick={() => handleAction("fund")}
+                    onClick={() => handleAction("close")}
                     className="gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Fund Escrow
-                  </Button>
-                )}
-                {isSeller && escrow.state === "funded" && (
-                  <Button
-                    onClick={() => handleAction("sendAsset")}
-                    className="gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Send Asset
-                  </Button>
-                )}
-                {isBuyer && escrow.state === "assetSent" && (
-                  <Button
-                    onClick={() => handleAction("confirm")}
-                    className="gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Confirm And Release
-                  </Button>
-                )}
-                {isSeller && ["assetSent"].includes(escrow.state) && (
-                  <Button
-                    onClick={() => handleAction("refund_seller")}
-                    className="gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Request Refund
-                  </Button>
-                )}
-                {isBuyer && ["funded", "assetSent"].includes(escrow.state) && (
-                  <Button
-                    onClick={() => handleAction("refund_buyer")}
-                    className="gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Request Refund
+                    Close Escrow
                   </Button>
                 )}
               </div>
             }
-            {escrow.state === "released" && (
-              <p className="text-sm font-semibold">
-                No Available Actions, Token Already released
-              </p>
-            )}
           </div>
         </div>
       </DialogContent>

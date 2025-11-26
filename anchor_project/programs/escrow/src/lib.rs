@@ -6,11 +6,10 @@ mod state;
 use anchor_lang::prelude::*;
 use instructions::*;
 
-declare_id!("6ZCSEugKRMSnJMLjw6kNBNbrejMQApnCTyYY52QNjnGq");
+declare_id!("nj9z1iSrdSBhFt3jmxmgHzhBLVqE6b2bh7MwLjiDWuq");
 
 #[program]
 pub mod escrow {
-
     use super::*;
 
     pub fn init_escrow(
@@ -20,7 +19,6 @@ pub mod escrow {
         deposit_amount: u64,
         receive_mint: Pubkey,
         receive_amount: u64,
-        expiry: i64,
     ) -> Result<()> {
         _init_escrow(
             ctx,
@@ -29,30 +27,14 @@ pub mod escrow {
             deposit_amount,
             receive_mint,
             receive_amount,
-            expiry,
         )
     }
-    pub fn accept_escrow(ctx: Context<AcceptEscrow>) -> Result<()> {
-        _accept_escrow(ctx)
+
+    pub fn accept(ctx: Context<Accept>, escrow_id: String) -> Result<()> {
+        _accept(ctx, escrow_id)
     }
 
-    pub fn fund_escrow(ctx: Context<FundEscrow>) -> Result<()> {
-        _fund_escrow(ctx)
-    }
-
-    pub fn send_asset(ctx: Context<SendAsset>) -> Result<()> {
-        _send_asset(ctx)
-    }
-
-    pub fn confirm_asset(ctx: Context<ConfirmAsset>) -> Result<()> {
-        _confirm_asset(ctx)
-    }
-
-    pub fn refund_buyer(ctx: Context<RefundBuyer>) -> Result<()> {
-        _refund_buyer(ctx)
-    }
-
-    pub fn refund_seller(ctx: Context<RefundSeller>) -> Result<()> {
-        _refund_seller(ctx)
+    pub fn close(ctx: Context<Close>, escrow_id: String) -> Result<()> {
+        _close(ctx, escrow_id)
     }
 }

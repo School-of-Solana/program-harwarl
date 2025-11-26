@@ -24,7 +24,7 @@ import type { EscrowStatus } from "./types/escrow";
 import { StatusBadge } from "./components/StatusBadge";
 import { CreateEscrowModal } from "./components/CreateEscrowModal";
 import { EscrowDetailModal } from "./components/EscrowDetailModal";
-import { Search, Filter, AlertCircle } from "lucide-react";
+import { Search, Filter, AlertCircle, RefreshCcw } from "lucide-react";
 import { useGetEscrows } from "./lib/query";
 import { getEscrowViaPda } from "./lib/escrow";
 import { PublicKey } from "@solana/web3.js";
@@ -36,6 +36,7 @@ export default function Home() {
   const { connection } = useConnection();
   const {
     data: dbEscrows = [],
+    refetch,
     isLoading,
     isError,
   } = useGetEscrows(wallet?.publicKey?.toString()!);
@@ -55,31 +56,28 @@ export default function Home() {
     const fetchOnChain = async () => {
       setLoadingOnChain(true);
 
-      const results = await Promise.all(
-        dbEscrows.map(async (escrow) => {
-          try {
-            const onChainData: any = await getEscrowViaPda(
-              connection,
-              wallet!,
-              new PublicKey(escrow.escrowPda)
-            );
+      const results = (
+        await Promise.all(
+          dbEscrows.map(async (escrow) => {
+            try {
+              const onChainData: any = await getEscrowViaPda(
+                connection,
+                wallet!,
+                new PublicKey(escrow.escrowPda)
+              );
 
-            const cleanedOnChainData = await cleanOnChainEscrow(
-              onChainData,
-              connection
-            );
+              const cleanedOnChainData = await cleanOnChainEscrow(
+                onChainData,
+                connection
+              );
 
-            return { ...escrow, ...cleanedOnChainData };
-          } catch (err) {
-            console.error(
-              "Error fetching on-chain escrow",
-              escrow.escrowPda,
-              err
-            );
-            return { ...escrow };
-          }
-        })
-      );
+              return { ...escrow, ...cleanedOnChainData };
+            } catch (err) {
+              return undefined;
+            }
+          })
+        )
+      ).filter(Boolean);
 
       setOnChainEscrows(results);
       setLoadingOnChain(false);
@@ -94,16 +92,16 @@ export default function Home() {
     wallet.connected && publicKey
       ? onChainEscrows?.filter(
           (e) =>
-            e.buyer === publicKey.toString() ||
-            e.seller === publicKey.toString()
+            e.owner === publicKey.toString() ||
+            e.receiver === publicKey.toString()
         ) ?? []
       : [];
 
   const filteredEscrows = userEscrows.filter((escrow) => {
     const matchesSearch =
       escrow.escrowPda.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      escrow.buyer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      escrow.seller.toLowerCase().includes(searchTerm.toLowerCase());
+      escrow.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      escrow.receiver.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
       statusFilter === "all" || escrow.state === statusFilter;
@@ -163,7 +161,7 @@ export default function Home() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="p-6 glass-card">
             <p className="text-sm text-muted-foreground mb-2">Active Escrows</p>
             <p className="text-3xl font-bold">
@@ -174,12 +172,6 @@ export default function Home() {
             <p className="text-sm text-muted-foreground mb-2">Total Escrows</p>
             <p className="text-3xl font-bold">{userEscrows.length}</p>
           </Card>
-          <Card className="p-6 glass-card">
-            <p className="text-sm text-muted-foreground mb-2">Completed</p>
-            <p className="text-3xl font-bold">
-              {userEscrows.filter((e) => e.state === "released").length}
-            </p>
-          </Card>
         </div>
 
         {/* Filters */}
@@ -188,7 +180,7 @@ export default function Home() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, buyer, or seller..."
+                placeholder="Search by ID, Owner, or Receiver..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -201,15 +193,21 @@ export default function Home() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="funded">Funded</SelectItem>
-                <SelectItem value="assetSent">AssetSent</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-                <SelectItem value="released">Released</SelectItem>
+                <SelectItem value="confirmed">Completed</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
+            {/* Right side refresh button */}
+            <Button
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isLoading || loadingOnChain}
+              className="gap-2 border border-primary/40"
+            >
+              <RefreshCcw />
+              Refresh
+            </Button>
           </div>
         </Card>
 
@@ -228,7 +226,6 @@ export default function Home() {
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
-                    <TableHead>Expires</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -263,7 +260,6 @@ export default function Home() {
                         <StatusBadge status={escrow.state as EscrowStatus} />
                       </TableCell>
                       <TableCell>{formatDate(escrow.createdAt)}</TableCell>
-                      <TableCell>{formatDate(escrow.expiry)}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"

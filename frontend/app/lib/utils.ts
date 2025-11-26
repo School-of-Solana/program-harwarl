@@ -11,8 +11,8 @@ export async function cleanOnChainEscrow(raw: any, connection: Connection) {
   return {
     escrowId: raw.escrowId,
 
-    buyer: raw.buyer.toBase58(),
-    seller: raw.seller.toBase58(),
+    owner: raw.escrowAuthority.toBase58(),
+    receiver: raw.receiver.toBase58(),
 
     depositMint: raw.depositMint.toBase58(),
     receiveMint: raw.receiveMint.toBase58(),
@@ -28,24 +28,15 @@ export async function cleanOnChainEscrow(raw: any, connection: Connection) {
         : Number(raw.receiveAmount) /
           (await getMintDecimals(connection, raw.receiveMint)),
 
-    createdAt: Number(raw.createdAt.toString()),
-    expiry: Number(raw.expiry.toString()),
-
     bump: raw.bump,
 
     state: extractState(raw.state),
-
-    buyerRefund: raw.buyerRefund,
-    sellerRefund: raw.sellerRefund,
   };
 }
 
 export function extractState(stateObj: any) {
-  if (stateObj.pending) return "pending";
-  if (stateObj.released) return "released";
-  if (stateObj.cancelled) return "cancelled";
-  if (stateObj.assetSent) return "assetSent";
-  if (stateObj.funded) return "funded";
   if (stateObj.active) return "active";
+  if (stateObj.completed) return "completed";
+  if (stateObj.closed) return "closed";
   return "unknown";
 }

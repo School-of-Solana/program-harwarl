@@ -1,10 +1,9 @@
 import * as anchor from "@coral-xyz/anchor";
-import type { Escrow as EscrowProgram } from "../../../anchor_project/target/types/escrow";
+import type { Escrow as EscrowProgram } from "../idl/escrow";
 import { PublicKey, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
-import idl from "../../../anchor_project/target/idl/escrow.json";
+import idl from "../idl/escrow.json";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   getAccount,
   getAssociatedTokenAddress,
   TOKEN_2022_PROGRAM_ID,
@@ -12,7 +11,7 @@ import {
   getMint,
 } from "@solana/spl-token";
 
-const SYSTEM_PROGRAM = anchor.web3.SystemProgram.programId;
+// const SYSTEM_PROGRAM = anchor.web3.SystemProgram.programId;
 const ESCROW_SEED = "ESCROW_SEED";
 const NATIVE_SOL = PublicKey.default.toBase58();
 
@@ -110,12 +109,10 @@ export const getEscrowBalances = async (
 
   let escrowSolBalance: number = 0;
   let depositBalance: number = 0;
-  let receiveBalance: number = 0;
 
   const isDepositSol = depositMint === NATIVE_SOL;
-  const isReceiveSol = receiveMint === NATIVE_SOL;
 
-  if (isDepositSol || isReceiveSol) {
+  if (isDepositSol) {
     // get sol balance
     // get Sol Vault
     const sol_vault = await getSolVaultPda(escrowPubKey, program);
@@ -155,15 +152,8 @@ export const getEscrowBalances = async (
       (await getMintDecimals(connection, new PublicKey(depositMint)));
   }
 
-  if (!isReceiveSol) {
-    receiveBalance =
-      (await fetchTokenBalance(receiveMint)) /
-      (await getMintDecimals(connection, new PublicKey(receiveMint)));
-  }
-
   return {
     depositBalance: isDepositSol ? escrowSolBalance : depositBalance,
-    receiveBalance: isReceiveSol ? escrowSolBalance : receiveBalance,
   };
 };
 
@@ -215,7 +205,7 @@ export const initializeEscrow = async (
   }
   let tx: string;
 
-  if (depositMint.toBase58() === PublicKey.default.toBase58()) {
+  if (depositMint.equals(PublicKey.default)) {
     depositAmount = depositAmount * LAMPORTS_PER_SOL;
   } else {
     try {
@@ -226,7 +216,7 @@ export const initializeEscrow = async (
     }
   }
 
-  if (receiveMint.toBase58() === PublicKey.default.toBase58()) {
+  if (receiveMint.equals(PublicKey.default)) {
     receiveAmount = receiveAmount * LAMPORTS_PER_SOL;
   } else {
     try {
@@ -244,12 +234,14 @@ export const initializeEscrow = async (
         depositMint,
         new anchor.BN(depositAmount),
         receiveMint,
-        new anchor.BN(receiveAmount),
-        new anchor.BN(expiry!)
+        new anchor.BN(receiveAmount)
       )
       .accounts({
-        buyer: wallet.publicKey!,
-        seller,
+        escrowAuthority: wallet.publicKey!,
+        receiver: seller,
+        depositMint: depositMint.equals(PublicKey.default)
+          ? receiveMint
+          : depositMint,
       })
       .signers([])
       .rpc({ commitment: "confirmed" });
@@ -265,15 +257,23 @@ export const acceptEscrow = async (
   wallet: WalletContextState,
   escrowPda: string
 ) => {
+  const escrowPkey = new PublicKey(escrowPda);
   if (!wallet.connected) throw new Error("Wallet not connected");
-
   const program = await getProgram(connection, wallet);
 
+  let escrow = await program.account.escrow.fetch(escrowPda);
+
   const tx = await program.methods
-    .acceptEscrow()
+    .accept(escrow.escrowId)
     .accounts({
-      seller: wallet.publicKey!,
-      escrow: new PublicKey(escrowPda),
+      receiver: wallet.publicKey!,
+      escrowAuthority: escrow.escrowAuthority,
+      receiveMint: escrow.receiveMint.equals(PublicKey.default)
+        ? escrow.depositMint
+        : escrow.receiveMint,
+      depositMint: escrow.depositMint.equals(PublicKey.default)
+        ? escrow.receiveMint
+        : escrow.depositMint,
     })
     .signers([])
     .rpc({ commitment: "confirmed" });
@@ -281,7 +281,7 @@ export const acceptEscrow = async (
   return { tx, escrowPda };
 };
 
-export const fundEscrow = async (
+export const closeEscrow = async (
   connection: Connection,
   wallet: WalletContextState,
   escrowPda: string
@@ -296,180 +296,13 @@ export const fundEscrow = async (
     : escrow.depositMint;
 
   const tx = await program.methods
-    .fundEscrow()
+    .close(escrow.escrowId)
     .accounts({
-      buyer: wallet.publicKey!,
-      mint,
-      escrow: escrowPda,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-    })
-    .signers([])
-    .rpc({ commitment: "confirmed" });
-
-  return { tx, escrowPda };
-};
-
-export const sendAsset = async (
-  connection: Connection,
-  wallet: WalletContextState,
-  escrowPda: string
-) => {
-  if (!wallet || !wallet.connected) throw new Error("Wallet not connected");
-
-  const program = await getProgram(connection, wallet);
-  let escrow = await program.account.escrow.fetch(escrowPda);
-
-  const tx = await program.methods
-    .sendAsset()
-    .accounts({
-      seller: wallet.publicKey!,
-      mint:
-        escrow.receiveMint == PublicKey.default
-          ? escrow.depositMint
-          : escrow.receiveMint,
-      escrow: escrowPda,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-    })
-    .signers([])
-    .rpc({ commitment: "confirmed" });
-
-  return { tx, escrowPda };
-};
-
-export const confirmAsset = async (
-  connection: Connection,
-  wallet: WalletContextState,
-  escrowPda: string
-) => {
-  if (!wallet || !wallet.connected) throw new Error("Wallet not connected");
-
-  const program = await getProgram(connection, wallet);
-  const escrowPubkey = new PublicKey(escrowPda);
-
-  const escrow = await program.account.escrow.fetch(escrowPubkey);
-
-  let buyer_ata: PublicKey | null = null;
-  let seller_ata: PublicKey | null = null;
-  let escrow_deposit_ata: PublicKey | null = null;
-  let escrow_receive_ata: PublicKey | null = null;
-
-  let depositMint: PublicKey | null = null;
-  let receiveMint: PublicKey | null = null;
-
-  // Deposit side
-  if (!escrow.depositMint.equals(PublicKey.default)) {
-    seller_ata = await getAccountATA(escrow.seller, escrow.depositMint);
-
-    escrow_deposit_ata = await getAccountATA(escrowPubkey, escrow.depositMint);
-
-    depositMint = escrow.depositMint;
-  }
-
-  // Receive side
-  if (!escrow.receiveMint.equals(PublicKey.default)) {
-    buyer_ata = await getAccountATA(wallet.publicKey!, escrow.receiveMint);
-
-    escrow_receive_ata = await getAccountATA(escrowPubkey, escrow.receiveMint);
-
-    receiveMint = escrow.receiveMint;
-  }
-
-  const tx = await program.methods
-    .confirmAsset()
-    .accounts({
-      buyer: wallet.publicKey!,
-      seller: escrow.seller,
-      escrow: escrowPubkey,
-      depositMint,
-      receiveMint,
-      escrowDepositAta: escrow_deposit_ata,
-      escrowReceiveAta: escrow_receive_ata,
-      buyerReceiveAta: buyer_ata,
-      sellerReceiveAta: seller_ata,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-    })
-    .rpc({ commitment: "confirmed" });
-
-  return { tx, escrowPda };
-};
-
-export const refundBuyer = async (
-  connection: Connection,
-  wallet: WalletContextState,
-  escrowPda: string
-) => {
-  if (!wallet || !wallet.connected) throw new Error("Wallet not connected");
-
-  const program = await getProgram(connection, wallet);
-  const escrowPubkey = new PublicKey(escrowPda);
-
-  const escrow = await program.account.escrow.fetch(escrowPda);
-  let depositMint: PublicKey | null = null;
-
-  // Deposit side
-  if (!escrow.depositMint.equals(PublicKey.default)) {
-    depositMint = escrow.depositMint;
-  }
-
-  // Receive side
-  if (!escrow.receiveMint.equals(PublicKey.default)) {
-    depositMint = escrow.receiveMint; // Placeholder
-  }
-
-  const tx = await program.methods
-    .refundBuyer()
-    .accounts({
-      buyer: wallet.publicKey!,
-      escrow: escrowPubkey,
-      depositMint,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-    })
-    .signers([])
-    .rpc({ commitment: "confirmed" });
-
-  return { tx, escrowPda };
-};
-
-export const refundSeller = async (
-  connection: Connection,
-  wallet: WalletContextState,
-  escrowPda: string
-) => {
-  if (!wallet || !wallet.connected) throw new Error("Wallet not connected");
-
-  const program = await getProgram(connection, wallet);
-  const escrowPubkey = new PublicKey(escrowPda);
-
-  const escrow = await program.account.escrow.fetch(escrowPda);
-  let receiveMint: PublicKey | null = null;
-
-  // Receive side
-  if (!escrow.receiveMint.equals(PublicKey.default)) {
-    receiveMint = escrow.receiveMint;
-  }
-
-  // Deposit side
-  if (!escrow.depositMint.equals(PublicKey.default)) {
-    receiveMint = escrow.depositMint; // Placeholder
-  }
-
-  const tx = await program.methods
-    .refundSeller()
-    .accounts({
-      seller: wallet.publicKey!,
-      escrow: escrowPubkey,
-      receiveMint,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      escrowAuthority: wallet.publicKey!,
+      receiver: escrow.receiver,
+      depositMint: escrow.depositMint.equals(PublicKey.default)
+        ? escrow.receiveMint
+        : escrow.depositMint,
     })
     .signers([])
     .rpc({ commitment: "confirmed" });

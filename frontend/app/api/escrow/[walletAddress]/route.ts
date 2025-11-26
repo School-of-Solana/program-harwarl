@@ -11,7 +11,7 @@ export async function GET(
     const walletAddress = (await params).walletAddress;
 
     const escrows = await Escrow.find({
-      $or: [{ buyer: walletAddress }, { seller: walletAddress }],
+      $or: [{ owner: walletAddress }, { receiver: walletAddress }],
     });
 
     return new Response(JSON.stringify(escrows), {

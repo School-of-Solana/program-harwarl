@@ -10,11 +10,12 @@ export const useGetEscrows = (walletAddress: string) => {
       if (!walletAddress) {
         throw new Error("Missing Wallet Address");
       }
-
       const { data } = await axiosInstance.get(`/escrow/${walletAddress}`);
-
       return data as EscrowData[];
     },
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: true,
+    staleTime: 0,
   });
 };
 

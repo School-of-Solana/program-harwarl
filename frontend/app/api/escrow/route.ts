@@ -18,9 +18,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { buyer, seller, escrowPda } = createEscrowPayload;
+    const { owner, receiver, escrowPda, description } = createEscrowPayload;
 
-    if (!buyer || !seller || !escrowPda) {
+    if (!owner || !receiver || !escrowPda) {
       return new Response(
         JSON.stringify({
           error: "Missing Fields",
@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await Escrow.create({
-      buyer,
-      seller,
-      description: createEscrowPayload.description || "",
+      owner,
+      receiver,
+      description: description || "",
       escrowPda,
     });
 
