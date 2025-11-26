@@ -11,6 +11,7 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { MoonLoader } from "react-spinners";
 import {
   Select,
   SelectContent,
@@ -30,7 +31,8 @@ export function CreateEscrowModal() {
   const wallet = useWallet();
   const { toast } = useToast();
   const { connection } = useConnection();
-  const createEscrow = useCreateEscrow();
+  const { mutate, isPending } = useCreateEscrow();
+  const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     counterparty: "8h1fAn67wKhmatHS52HQBeYhM5JHEJap43U6YC4AT95x",
@@ -42,6 +44,7 @@ export function CreateEscrowModal() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
 
     if (!wallet.connected) {
       toast({
@@ -49,6 +52,7 @@ export function CreateEscrowModal() {
         description: "Please connect your wallet first",
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
 
@@ -62,6 +66,7 @@ export function CreateEscrowModal() {
         description: "Please fill in all required fields",
         variant: "destructive",
       });
+      setIsLoading(false);
       return;
     }
 
@@ -87,7 +92,7 @@ export function CreateEscrowModal() {
       );
 
       // if tx and escrowPda, Save to the database
-      createEscrow.mutate(
+      mutate(
         {
           owner: String(wallet.publicKey)!,
           receiver: counterparty,
@@ -114,6 +119,7 @@ export function CreateEscrowModal() {
       });
     }
 
+    setIsLoading(false);
     setOpen(false);
     setFormData({
       counterparty: "8h1fAn67wKhmatHS52HQBeYhM5JHEJap43U6YC4AT95x",
@@ -227,8 +233,19 @@ export function CreateEscrowModal() {
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button type="submit" className="flex-1">
+            {/* <Button type="submit" className="flex-1" disabled={isPending}>
               Create Escrow
+            </Button> */}
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="flex-1 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isPending || isLoading ? (
+                <MoonLoader size={25} />
+              ) : (
+                "Create Escrow"
+              )}
             </Button>
             <Button
               type="button"

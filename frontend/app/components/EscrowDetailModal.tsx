@@ -17,6 +17,7 @@ import { useToast } from "../hooks/use-toast";
 import type { Escrow, EscrowStatus } from "../types/escrow";
 import { MINT_TO_TOKEN } from "../lib/tokenMap";
 import { acceptEscrow, getEscrowBalances, closeEscrow } from "../lib/escrow";
+import { MoonLoader } from "react-spinners";
 
 interface EscrowDetailModalProps {
   escrow: Escrow | null;
@@ -33,6 +34,7 @@ export function EscrowDetailModal({
   const wallet = useWallet();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const connectedAddress = wallet.publicKey?.toString();
   const [depositBalance, setDepositBalance] = useState<number | null>(null);
@@ -78,6 +80,7 @@ export function EscrowDetailModal({
   };
 
   const handleAction = async (action: string) => {
+    setIsLoading(true);
     let fn: (() => Promise<{ tx: string; escrowPda: string }>) | null = null;
 
     switch (action) {
@@ -114,6 +117,8 @@ export function EscrowDetailModal({
         variant: "destructive",
       });
     }
+
+    setIsLoading(false);
   };
 
   const shortenAddress = (address: string) => {
@@ -267,8 +272,14 @@ export function EscrowDetailModal({
                     onClick={() => handleAction("accept")}
                     className="gap-2"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Accept
+                    {isLoading ? (
+                      <MoonLoader size={25} />
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Accept
+                      </>
+                    )}
                   </Button>
                 )}
                 {isOwner && ["completed", "active"].includes(escrow.state) && (
